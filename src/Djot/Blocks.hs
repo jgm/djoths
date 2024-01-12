@@ -31,7 +31,6 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
