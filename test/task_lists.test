@@ -1,0 +1,31 @@
+```
+- [ ] an unchecked task list item
+- [x] checked item
+.
+<ul class="task-list">
+<li class="unchecked">
+<label><input type="checkbox" />an unchecked task list item</label>
+</li>
+<li class="checked">
+<label><input type="checkbox" checked="" />checked item</label>
+</li>
+</ul>
+```
+
+```
+* [ ] an unchecked task list item
+
+  with two paragraphs
+
+* [x] checked item
+.
+<ul class="task-list">
+<li class="unchecked">
+<p><label><input type="checkbox" />an unchecked task list item</label></p>
+<p>with two paragraphs</p>
+</li>
+<li class="checked">
+<p><label><input type="checkbox" checked="" />checked item</label></p>
+</li>
+</ul>
+```
