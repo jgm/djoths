@@ -214,7 +214,7 @@ pCloser = do
   i <- get
   if i .&. 0b000000000000000000000000000000000000000000011111111110000000000 == 0
      then failed
-     else try $ do
+     else do
        skipSatisfyAscii' (\d ->
                   (testBit i 10 && d == '*')
                || (testBit i 11 && d == '_')
