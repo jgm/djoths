@@ -66,7 +66,7 @@ afterWs = do
 lastChar :: ParserT st r e Char
 lastChar = do
   i <- get
-  pure $ chr $ oneBits .&. (i `shiftR` 20)
+  pure $ chr $ 0b11111111 .&. (i `shiftR` 20)
 
 getIndent :: ParserT st re e (Maybe Int)
 getIndent = do
