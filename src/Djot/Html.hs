@@ -92,7 +92,6 @@ data BState =
          , renderedNotes :: M.Map ByteString Builder
          , referenceMap :: ReferenceMap
          }
-  deriving (Show)
 
 {-# SPECIALIZE toBuilder :: Blocks -> State BState Builder #-}
 {-# SPECIALIZE toBuilder :: Inlines -> State BState Builder #-}
