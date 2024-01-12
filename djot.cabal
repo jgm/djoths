@@ -20,7 +20,7 @@ common warnings
 Library
     import:           warnings
     build-depends:    base,
-                      bytestring >= 0.13.3,
+                      bytestring >= 0.11.3,
                       flatparse >= 0.5,
                       containers,
                       mtl
