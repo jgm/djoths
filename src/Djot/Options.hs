@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Djot.Options
 ( ParseOptions(..) )
 where
