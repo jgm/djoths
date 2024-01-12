@@ -16,7 +16,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Builder (Builder, byteString, word8)
 import qualified Data.Sequence as Seq
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import Data.List (sort)
 import Control.Monad.State

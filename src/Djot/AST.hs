@@ -72,7 +72,7 @@ import Prelude hiding (div)
 import Data.ByteString (ByteString)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import Data.Data (Data, Typeable)
 import qualified Data.ByteString.Char8 as B8
 
