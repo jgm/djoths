@@ -1,0 +1,80 @@
+name: CI tests
+
+on: [push, pull_request]
+
+jobs:
+  linux:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        versions:
+          - ghc: '8.10'
+            cabal: '3.2'
+          - ghc: '9.0'
+            cabal: '3.4'
+          - ghc: '9.2'
+            cabal: '3.6'
+          - ghc: '9.4'
+            cabal: '3.8'
+          - ghc: '9.6'
+            cabal: '3.10'
+          - ghc: '9.8'
+            cabal: '3.10'
+    steps:
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install cabal/ghc
+      run: |
+        ghcup install ghc --set ${{ matrix.versions.ghc }}
+        ghcup install cabal --set ${{ matrix.versions.cabal }}
+
+    - name: Cache cabal global package db
+      id:   cabal-global
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal
+        key: ${{ runner.os }}-${{ matrix.versions.ghc }}-${{ matrix.versions.cabal }}-cabal-global-${{ secrets.CACHE_VERSION }}
+
+    - name: Install dependencies
+      run: |
+          cabal v2-update
+          cabal v2-build --dependencies-only --enable-tests --enable-benchmarks all
+    - name: Build
+      run: |
+          cabal v2-build --enable-tests --enable-benchmarks
+    - name: Test
+      run: |
+          cabal v2-test
+
+  windows:
+
+    runs-on: windows-2019
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install ghc
+      run: |
+        ghcup install ghc --set 9.4.4
+
+    - name: Cache cabal global package db
+      id:   cabal-global
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:\cabal\store
+        key: ${{ runner.os }}-appdata-cabal-${{ hashFiles('cabal.project') }}-${{ secrets.CACHE_VERSION }}
+
+    - name: Install dependencies
+      run: |
+          cabal v2-update
+          cabal v2-build --dependencies-only --enable-tests --enable-benchmarks all
+    - name: Build
+      run: |
+          cabal v2-build --enable-tests --enable-benchmarks --ghc-options=-Werror
+    - name: Test
+      run: |
+          cabal v2-test
