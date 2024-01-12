@@ -13,25 +13,6 @@ import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
 
--- TODO:
-
--- INLINE: see Inline module
--- BLOCK:
--- [ ] Paragraph
--- [ ] Heading
--- [ ] Block quote
--- [ ] List item
--- [ ] List
--- [ ] Code block
--- [ ] Thematic break
--- [ ] Raw block
--- [ ] Div
--- [ ] Pipe table
--- [ ] Reference link definition
--- [ ] Footnote
--- [ ] Block attributes
--- [ ] Implicit Links to headings
-
 main :: IO ()
 main = do
   fs <- getArgs
