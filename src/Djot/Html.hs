@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE Strict #-}
 module Djot.Html
   ( inlinesToByteString
   , renderDoc
