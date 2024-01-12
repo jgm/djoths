@@ -65,6 +65,8 @@ benchmark benchmark-djot
        djot
      , base >= 4.9 && < 5
      , bytestring
+     , directory
+     , filepath
      , tasty-bench
   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-K10K -with-rtsopts=-kc10K
   if impl(ghc >= 8.10)
