@@ -27,7 +27,7 @@ import Data.Foldable as F
 --
 
 isSpecial :: Char -> Bool
-isSpecial c = c == '[' || c == ']' || c == ']' || c == '<' || c == '>' ||
+isSpecial c = c == '[' || c == ']' || c == '<' || c == '>' ||
               c == '$' || c == '!' || c == '{' || c == '}' || c == ':' ||
               c == '=' || c == '+' || c == '-' || c == '^' || c == '~' ||
               c == '*' || c == '_' || c == '\''|| c == '"' || c == '.' ||
@@ -89,30 +89,38 @@ pOptionalAttributes (Inlines ils) =
   <|> pure (Inlines ils)
 
 pInline' :: P Inlines
-pInline' = fails pCloser *>
-   (  pWords
-  <|> pEscaped
-  <|> pFootnoteReference
-  <|> pLinkOrSpan
-  <|> pAutolink
-  <|> pImage
-  <|> pEmph
-  <|> pStrong
-  <|> pHighlight
-  <|> pInsert
-  <|> pDelete
-  <|> pSuperscript
-  <|> pSubscript
-  <|> pVerbatim
-  <|> pSymbol
-  <|> pMath
-  <|> pDoubleQuote
-  <|> pSingleQuote
-  <|> pHyphens
-  <|> pEllipses
-  <|> pSoftBreak
-  <|> pSpecial
-   )
+pInline' = do
+  fails pCloser
+  (do c <- lookahead (satisfyAscii isSpecial)
+      (case c of
+          '\\' -> pEscaped
+          '[' -> pFootnoteReference
+             <|> pLinkOrSpan
+          '<' -> pAutolink
+          '!' -> pImage
+          '_' -> pEmph
+          '*' -> pStrong
+          '^' -> pSuperscript
+          '~' -> pSubscript
+          '{' -> pEmph
+             <|> pStrong
+             <|> pHighlight
+             <|> pInsert
+             <|> pDelete
+             <|> pSuperscript
+             <|> pSubscript
+             <|> pDoubleQuote
+             <|> pSingleQuote
+          '`' -> pVerbatim
+          ':' -> pSymbol
+          '$' -> pMath
+          '"' -> pDoubleQuote
+          '\'' -> pSingleQuote
+          '-' -> pHyphens
+          '.' -> pEllipses
+          '\n' -> pSoftBreak
+          _ -> mzero) <|> pSpecial
+       ) <|> pWords
 
 pSpecial :: P Inlines
 pSpecial = do
