@@ -722,6 +722,10 @@ referenceDefinitionSpec =
   , blockFinalize = const mempty
   }
 
+data FootnoteData =
+  FootnoteData (Maybe Int) ByteString
+  deriving (Show, Ord, Eq, Typeable)
+
 footnoteSpec :: BlockSpec s
 footnoteSpec =
   BlockSpec
@@ -736,21 +740,17 @@ footnoteSpec =
       asciiChar' ']'
       asciiChar' ':'
       skipMany spaceOrTab
-      addContainer footnoteSpec (ind, normalizeLabel label)
+      addContainer footnoteSpec $ FootnoteData ind (normalizeLabel label)
   , blockContinue = \container -> try (do
       skipMany spaceOrTab
       curind <- getIndent
-      ind <- case fromDynamic (containerData container) of
-               Nothing -> error "footnoteSpec data missing"
-               Just (ind :: Maybe Int, _ :: B.ByteString) -> pure ind
+      let FootnoteData ind _ = getContainerData container
       guard (curind > ind) <|> lookahead pBlankLine
       pure True) <|> pure False
   , blockContainsBlock = Just Normal
   , blockContainsLines = True
   , blockClose = \container -> do
-      label <- case fromDynamic (containerData container) of
-                 Nothing -> error "footnoteSpec data missing"
-                 Just (_ :: Maybe Int, label :: B.ByteString) -> pure label
+      let FootnoteData _ label = getContainerData container
       let bls = finalizeChildren container
       modifyP $ \st -> st{ psNoteMap = insertNote label bls (psNoteMap st) }
       pure container
