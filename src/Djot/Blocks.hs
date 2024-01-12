@@ -774,11 +774,7 @@ paraSpec =
   }
 
 parseTextLines :: Container s -> P s Inlines
-parseTextLines container = do
-  -- parse as inlines
-  case parseInlines (containerText container) of
-    Right ils -> pure ils
-    Left e -> err e
+parseTextLines = either err pure . parseInlines . containerText
 
 emptyContainer :: Container s
 emptyContainer =
@@ -914,7 +910,7 @@ tryContainerStarts = do
                                 blockType sp == ListItem && bt == Normal
                                 -- we open Para blocks later
                               , blockName sp /= "Para"
-                              , blockType sp /= Document]
+                              ]
           True <$ tryContainerStarts)
        <|> pure False
     _ -> pure False
