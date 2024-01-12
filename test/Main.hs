@@ -2,15 +2,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- import           Djot
-import Control.Monad (when)
-import Data.Functor.Identity
-import Data.List (groupBy)
-import System.IO (hSetEncoding, utf8, openFile,
- IOMode(..))
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -67,11 +60,6 @@ toSpecTest parser st =
           expected = fromUtf8 $ html st
           actual = either mempty (fromUtf8 . toLazyByteString . renderDoc)
                      . parser $ djot st
-
-fromRight :: b -> Either a b ->  b
-fromRight fallback (Left _) = fallback
-fromRight _ (Right x)       = x
-
 
 data SpecTest = SpecTest
      { djot       :: BL.ByteString
