@@ -28,6 +28,7 @@ import Control.Monad.ST
 import Control.Monad (replicateM_, void, mzero, unless, when, guard, foldM)
 import Data.Dynamic
 import Data.List.NonEmpty (NonEmpty(..))
+import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -1030,9 +1031,7 @@ toIdentifier :: ByteString -> ByteString
 toIdentifier bs =
   if null parts
      then "sec"
-     else B8.intercalate "-" parts
+     else strToUtf8 $ intercalate "-" parts
  where
    isSym = (`elem` ("][~!@#$%^&*(){}`,.<>\\|=+/" :: [Char]))
-   parts = B8.words $ B8.strip $ B8.map (\c -> if isSym c then ' ' else c)
-             bs
-
+   parts = words $ map (\c -> if isSym c then ' ' else c) $ utf8ToStr bs
