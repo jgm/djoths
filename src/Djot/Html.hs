@@ -62,6 +62,7 @@ addBackref num (Blocks bls) =
                  (Link (str (strToUtf8 "\8617\65038"))
                  (Direct ("#fnref" <> num)))
 
+{-# INLINE escapeHtml #-}
 escapeHtml :: ByteString -> Builder
 escapeHtml bs =
   if hasEscapable bs
@@ -74,6 +75,7 @@ escapeHtml bs =
   go b 62 = b <> byteString "&gt;"
   go b c  = b <> word8 c
 
+{-# INLINE escapeHtmlAttribute #-}
 escapeHtmlAttribute :: ByteString -> Builder
 escapeHtmlAttribute bs =
   if hasEscapable bs
@@ -311,6 +313,7 @@ singleTag :: ByteString -> Attr -> Builder
 singleTag tag attr =
   "<" <> byteString tag <> attrToBuilder attr <> ">"
 
+{-# INLINE attrToBuilder #-}
 attrToBuilder :: Attr -> Builder
 attrToBuilder (Attr pairs) = foldMap go pairs
  where
