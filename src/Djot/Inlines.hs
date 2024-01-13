@@ -91,8 +91,8 @@ pOptionalAttributes (Inlines ils) =
 
 pInline' :: P Inlines
 pInline' = do
-  fails pCloser
   (do c <- lookahead (satisfyAscii isSpecial)
+      fails pCloser
       (case c of
           '\\' -> pEscaped
           '[' -> pFootnoteReference
