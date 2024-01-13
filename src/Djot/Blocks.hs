@@ -905,11 +905,11 @@ tryContainerStarts = do
     Just bt ->
       (do skipMany spaceOrTab
           msum [blockStart sp | sp <- specs
-                              , blockType sp == bt
-                                ||
-                                blockType sp == ListItem && bt == Normal
+                              -- don't allow tables to contain anything but captions
+                              , (bt /= CaptionBlock || blockType sp == CaptionBlock)
                                 -- we open Para blocks later
                               , blockName sp /= "Para"
+                              , blockType sp /= Document
                               ]
           True <$ tryContainerStarts)
        <|> pure False
