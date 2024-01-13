@@ -9,7 +9,7 @@ module Djot.Inlines
 where
 
 import Data.Char (isAscii, isLetter, isAlphaNum, isSymbol, isPunctuation)
-import Control.Monad (void, guard, when, unless, mzero)
+import Control.Monad (guard, when, unless, mzero)
 import Data.Sequence (Seq)
 import Data.Bits (testBit, setBit, clearBit, (.&.), (.|.))
 import qualified Data.Sequence as Seq
@@ -254,7 +254,7 @@ pBetween c constructor = try $ do
           False
             | bracesRequired c -> failed
             | otherwise -> asciiChar' c `notFollowedBy`
-                                (void ws <|> asciiChar' '}')
+                                (ws <|> asciiChar' '}')
           True -> asciiChar' c `notFollowedBy` asciiChar' '}'
   let ender leftBrace = try $ do
         afterws <- afterWs
