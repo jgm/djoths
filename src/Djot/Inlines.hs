@@ -26,6 +26,7 @@ import Data.Foldable as F
 
 --
 
+{-# INLINE isSpecial #-}
 isSpecial :: Char -> Bool
 isSpecial c = c == '[' || c == ']' || c == '<' || c == '>' ||
               c == '$' || c == '!' || c == '{' || c == '}' || c == ':' ||
@@ -137,7 +138,8 @@ pWords = do
   res <- byteStringOf (skipSome (skipSatisfy' (not . isSpecial)))
   try (do asciiChar' '\\'
           brk <- pHardBreak
-          pure (str (B8.dropWhileEnd isSpaceOrTab res) <> brk))
+          pure (str (B8.dropWhileEnd (\c -> c == ' ' || c == '\t') res)
+                 <> brk))
     <|> pure (str res)
 
 pEscaped :: P Inlines
@@ -149,7 +151,7 @@ pEscaped = do
          <|> ('\n' <$ endline)
          <|> pure '\\'
   case c of
-    '\n' -> hardBreak <$ skipMany (skipSatisfyAscii' isSpaceOrTab)
+    '\n' -> hardBreak <$ skipMany spaceOrTab
     _ | c == ' ' || c == '\t' -> try pHardBreak
                              <|> if c == ' '
                                     then pure nonBreakingSpace
@@ -158,16 +160,10 @@ pEscaped = do
 
 pHardBreak :: P Inlines
 pHardBreak = do -- assumes we've parsed \ already
-  skipMany (skipSatisfyAscii' isSpaceOrTab)
+  skipMany spaceOrTab
   endline
-  skipMany (skipSatisfyAscii' isSpaceOrTab)
+  skipMany spaceOrTab
   pure hardBreak
-
-isSpaceOrTab :: Char -> Bool
-isSpaceOrTab ' ' = True
-isSpaceOrTab '\t' = True
-isSpaceOrTab _ = False
-
 
 pSoftBreak :: P Inlines
 pSoftBreak = do
