@@ -59,3 +59,22 @@ Issue #57:
 </table>
 ```
 
+Section start after list:
+
+```
+: term
+
+  def
+
+# New heading
+.
+<dl>
+<dt>term</dt>
+<dd>
+def
+</dd>
+</dl>
+<section id="New-heading">
+<h1>New heading</h1>
+</section>
+```
