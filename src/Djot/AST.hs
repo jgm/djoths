@@ -224,6 +224,7 @@ lookupReference :: ByteString -> ReferenceMap -> Maybe (ByteString, Attr)
 lookupReference label (ReferenceMap rm) =
   M.lookup (normalizeLabel label) rm
 
+{-# INLINE inline #-}
 inline :: Inline -> Inlines
 inline = Inlines . Seq.singleton . Node mempty
 
