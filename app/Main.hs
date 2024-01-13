@@ -1,7 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE Strict #-}
-{-# LANGUAGE InstanceSigs #-}
 module Main where
 
 import qualified Data.ByteString as B
