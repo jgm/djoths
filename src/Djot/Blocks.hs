@@ -973,15 +973,18 @@ closeInappropriateContainers spec = do
       | otherwise -> closeCurrentContainer *> closeInappropriateContainers spec
 
 
+{-# INLINE pLine #-}
 pLine :: P s ByteString
 pLine = byteStringOf $
   (skipSome (skipSatisfy' (\c -> c /= '\n' && c /= '\r')) <* optional_ endline)
     <|> endline
 
+{-# INLINE pBlankLine #-}
 pBlankLine :: P s ()
 pBlankLine = try $
   skipMany spaceOrTab *> (endline <|> eof)
 
+{-# INLINE addAttr #-}
 addAttr :: Attr -> Blocks -> Blocks
 addAttr attr (Blocks nodes) =
   Blocks (fmap (\(Node attr' bs) -> Node (attr' <> attr) bs) nodes)
@@ -1002,10 +1005,12 @@ gobbleSpaceToIndent indent = do
          optional_ (spaceOrTab *> gobbleSpaceToIndent indent)
     _ -> pure ()
 
+{-# INLINE getTip #-}
 -- Get tip of container stack.
 getTip :: P s (Container s)
 getTip = NonEmpty.head <$> getsP psContainerStack
 
+{-# INLINE getContainerData #-}
 getContainerData :: Typeable a => Container s -> a
 getContainerData cont =
    case fromDynamic (containerData cont) of
