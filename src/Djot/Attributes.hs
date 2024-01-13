@@ -27,12 +27,12 @@ import Data.ByteString (ByteString)
 
 pAttributes :: ParserT m s String Attr
 pAttributes = try $ do
-  char' '{'
+  asciiChar' '{'
   skipMany ws
   x <- pAttribute
   xs <- many (skipSome ws *> pAttribute)
   skipMany ws
-  char' '}'
+  asciiChar' '}'
   pure $ mconcat (x:xs)
 
 pAttribute :: ParserT m s String Attr
@@ -40,20 +40,20 @@ pAttribute = pIdentifier <|> pClass <|> pKeyVal
 
 pIdentifier :: ParserT m s String Attr
 pIdentifier = do
-  char' '#'
+  asciiChar' '#'
   name <- pName
   pure $ Attr [("id", name)]
 
 pClass :: ParserT m s String Attr
 pClass = do
-  char' '.'
+  asciiChar' '.'
   name <- pName
   pure $ Attr [("class", name)]
 
 pKeyVal :: ParserT m s String Attr
 pKeyVal = do
   key <- pKey
-  char' '='
+  asciiChar' '='
   val <- pVal
   pure $ Attr [(key, val)]
 
@@ -72,10 +72,10 @@ pVal = pQuotedVal <|> pBareVal
 
 pQuotedVal :: ParserT m s String ByteString
 pQuotedVal = do
-  char' '"'
+  asciiChar' '"'
   result <- byteStringOf $ skipSome
-               (skipSatisfy (/= '"') <|> (char' '\\' *> skipAnyChar))
-  char' '"'
+               (skipSatisfy (/= '"') <|> (asciiChar' '\\' *> skipAnyChar))
+  asciiChar' '"'
   pure result
 
 pBareVal :: ParserT m s String ByteString
