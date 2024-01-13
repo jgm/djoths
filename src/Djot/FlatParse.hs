@@ -78,27 +78,35 @@ getIndent = do
 ws :: ParserT s r e ()
 ws = skipSatisfyAscii' isWs
 
+{-# INLINE spaceOrTab #-}
 spaceOrTab :: ParserT s r e ()
 spaceOrTab = skipSatisfyAscii' (\c -> c == ' ' || c == '\t')
 
+{-# INLINE endline #-}
 endline :: ParserT s r e ()
 endline =
   branch (asciiChar' '\r') (optional_ (asciiChar' '\n')) (asciiChar' '\n')
 
+{-# INLINE satisfy' #-}
 satisfy' :: (Char -> Bool) -> ParserT st r e Char
 satisfy' f = satisfy f >>= \c -> c <$ updateState c
 
+{-# INLINE satisfyAscii' #-}
 satisfyAscii' :: (Char -> Bool) -> ParserT st r e Char
 satisfyAscii' f = satisfyAscii f >>= \c -> c <$ updateState c
 
+{-# INLINE skipSatisfy' #-}
 skipSatisfy' :: (Char -> Bool) -> ParserT st r e ()
 skipSatisfy' f = satisfy f >>= updateState
 
+{-# INLINE skipSatisfyAscii' #-}
 skipSatisfyAscii' :: (Char -> Bool) -> ParserT st r e ()
 skipSatisfyAscii' f = satisfyAscii f >>= updateState
 
+{-# INLINE char' #-}
 char' :: Char -> ParserT st r e ()
 char' c = skipSatisfy' (== c)
 
+{-# INLINE asciiChar' #-}
 asciiChar' :: Char -> ParserT st r e ()
 asciiChar' c = skipSatisfyAscii' (== c)
