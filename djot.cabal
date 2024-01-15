@@ -1,13 +1,15 @@
 cabal-version:      3.0
 name:               djot
 version:            0.1.0.0
--- synopsis:
--- description:
+synopsis:           Parser and renderer for djot light markup syntax.
+description:        Djot (<https://djot.net>) is a light markup language.
+                    This package provides a data structure to represent
+                    djot documents, a very fast parser, and a renderer.
 license:            MIT
 license-file:       LICENSE
 author:             John MacFarlane
 maintainer:         jgm@berkeley.edu
--- copyright:
+copyright:          Copyright (C) 2024 John MacFarlane
 category:           Text
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
