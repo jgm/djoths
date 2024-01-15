@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE Strict #-}
-module Djot.Writer
+module Djot.Djot
   ( renderDjot
   )
 where

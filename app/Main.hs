@@ -1,23 +1,43 @@
 {-# LANGUAGE Strict #-}
 module Main where
 
+import Control.Monad
 import qualified Data.ByteString as B
 import Data.ByteString.Builder (hPutBuilder)
-import Djot ( ParseOptions(..), parseDoc, renderHtml )
+import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
 
+data OutputFormat = Html | Djot
+
+data Opts =
+      Opts{ format :: OutputFormat
+          , files :: [FilePath] }
+
+parseOpts :: [String] -> IO Opts
+parseOpts = foldM go Opts{ format = Html, files = [] }
+ where
+   go opts "--djot" = pure $ opts{ format = Djot }
+   go opts "--html" = pure $ opts{ format = Html }
+   go _opts ('-':xs) = do
+     hPutStrLn stderr $ "Unknown option " <> ('-':xs)
+     exitWith $ ExitFailure 1
+   go opts f = pure $ opts{ files = files opts ++ [f] }
+
 main :: IO ()
 main = do
-  fs <- getArgs
-  bs <- case fs of
+  opts <- getArgs >>= parseOpts
+  bs <- case files opts of
           [] -> B.getContents
-          _  -> mconcat <$> mapM B.readFile fs
-  let opts = ParseOptions{ optSourcePositions = False }
-  case parseDoc opts bs of
+          fs  -> mconcat <$> mapM B.readFile fs
+  let popts = ParseOptions{ optSourcePositions = False }
+  case parseDoc popts bs of
     Right doc -> do
-      hPutBuilder stdout $ renderHtml doc
+      hPutBuilder stdout $
+        case format opts of
+          Html -> renderHtml doc
+          Djot -> renderDjot doc
       exitWith ExitSuccess
     Left e -> do
       hPutStrLn stderr e
