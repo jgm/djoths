@@ -3,9 +3,7 @@ module Main where
 
 import qualified Data.ByteString as B
 import Data.ByteString.Builder (hPutBuilder)
-import Djot.Options ( ParseOptions(..) )
-import Djot.Blocks ( parseDoc )
-import Djot.Html ( renderDoc )
+import Djot ( ParseOptions(..), parseDoc, renderDoc )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )

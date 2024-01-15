@@ -9,10 +9,7 @@ import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
-import Djot.Options ( ParseOptions(..) )
-import Djot.Blocks ( parseDoc )
-import Djot.Html ( renderDoc )
-import Djot.AST ( Doc )
+import Djot ( ParseOptions(..), parseDoc, renderDoc, Doc )
 import System.FilePath ((</>))
 
 main :: IO ()
