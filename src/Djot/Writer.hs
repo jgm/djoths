@@ -2,9 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE Strict #-}
-module Djot.Html
-  ( inlinesToByteString
-  , renderHtml
+module Djot.Writer
+  ( renderDjot
   )
 where
 
@@ -22,8 +21,8 @@ import Data.List (sort)
 import Control.Monad.State
 import qualified Data.Foldable as F
 
-renderHtml :: Doc -> Builder
-renderHtml doc = evalState ( (<>) <$> toBuilder (docBlocks doc)
+renderDjot :: Doc -> Builder
+renderDjot doc = evalState ( (<>) <$> toBuilder (docBlocks doc)
                                  <*> toNotes )
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty

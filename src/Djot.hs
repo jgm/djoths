@@ -1,11 +1,11 @@
 module Djot
   ( parseDoc
   , ParseOptions(..)
-  , renderDoc
+  , renderHtml
   , module Djot.AST
   )
 where
 
 import Djot.Blocks (parseDoc, ParseOptions(..))
-import Djot.Html (renderDoc)
+import Djot.Html (renderHtml)
 import Djot.AST

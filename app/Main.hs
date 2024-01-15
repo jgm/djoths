@@ -3,7 +3,7 @@ module Main where
 
 import qualified Data.ByteString as B
 import Data.ByteString.Builder (hPutBuilder)
-import Djot ( ParseOptions(..), parseDoc, renderDoc )
+import Djot ( ParseOptions(..), parseDoc, renderHtml )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
@@ -17,7 +17,7 @@ main = do
   let opts = ParseOptions{ optSourcePositions = False }
   case parseDoc opts bs of
     Right doc -> do
-      hPutBuilder stdout $ renderDoc doc
+      hPutBuilder stdout $ renderHtml doc
       exitWith ExitSuccess
     Left e -> do
       hPutStrLn stderr e

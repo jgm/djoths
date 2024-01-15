@@ -30,6 +30,7 @@ Library
                       Djot.Inlines
                       Djot.Blocks
                       Djot.Html
+                      Djot.Writer
     ghc-options: -Wall -O2
 
 executable djoths

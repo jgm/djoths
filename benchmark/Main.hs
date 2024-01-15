@@ -5,7 +5,7 @@
 import Test.Tasty.Bench
 import Data.Functor.Identity  -- base >= 4.8
 import qualified Data.ByteString as B
-import Djot ( ParseOptions(..), parseDoc, renderDoc )
+import Djot ( ParseOptions(..), parseDoc )
 import Data.ByteString.Builder ( toLazyByteString )
 import System.Directory
 import System.FilePath (takeExtension, (</>))

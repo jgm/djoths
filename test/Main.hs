@@ -9,7 +9,7 @@ import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
-import Djot ( ParseOptions(..), parseDoc, renderDoc, Doc )
+import Djot ( ParseOptions(..), parseDoc, renderHtml, Doc )
 import System.FilePath ((</>))
 
 main :: IO ()
@@ -55,7 +55,7 @@ toSpecTest parser st =
   testCase name (actual @?= expected)
     where name = "lines " ++ show (start_line st) ++ "-" ++ show (end_line st)
           expected = fromUtf8 $ html st
-          actual = either mempty (fromUtf8 . toLazyByteString . renderDoc)
+          actual = either mempty (fromUtf8 . toLazyByteString . renderHtml)
                      . parser $ djot st
 
 data SpecTest = SpecTest
