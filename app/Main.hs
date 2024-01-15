@@ -8,6 +8,8 @@ import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
+import Text.DocLayout (render)
+import qualified Data.Text.IO as TIO
 
 data OutputFormat = Html | Djot
 
@@ -34,10 +36,9 @@ main = do
   let popts = ParseOptions{ optSourcePositions = False }
   case parseDoc popts bs of
     Right doc -> do
-      hPutBuilder stdout $
-        case format opts of
-          Html -> renderHtml doc
-          Djot -> renderDjot doc
+      case format opts of
+        Html -> hPutBuilder stdout $ renderHtml doc
+        Djot -> TIO.putStr $ render (Just 78) (renderDjot doc)
       exitWith ExitSuccess
     Left e -> do
       hPutStrLn stderr e
