@@ -23,11 +23,12 @@ import Text.DocLayout hiding (Doc)
 import qualified Text.DocLayout as Layout
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
 
 renderDjot :: Doc -> Layout.Doc Text
 renderDjot doc = evalState ( (<>) <$> toLayout (docBlocks doc)
-                                 <*> toNotes )
+                                  <*> toNotes )
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty
                                , renderedNotes = mempty
@@ -39,36 +40,16 @@ toNotes = do
   let noterefs = noteRefs st
   let numnotes = M.size noterefs
   let revnoterefs = sort $ map swap $ M.toList noterefs
-  undefined
+  pure mempty -- TODO implement this
+
+fromUtf8 :: ByteString -> Text
+fromUtf8 = decodeUtf8With lenientDecode
+
+data EscapeContext = Normal
 
 {-# INLINE escapeDjot #-}
-escapeDjot :: ByteString -> Layout.Doc Text
-escapeDjot bs =
-  undefined
---  if hasEscapable bs
---     then B.foldl' go mempty bs
---     else byteString bs
--- where --TODO
---  hasEscapable = B.any (\w -> w == 38 || w == 60 || w == 62)
---  go b 38 = b <> byteString "&amp;"
---  go b 60 = b <> byteString "&lt;"
---  go b 62 = b <> byteString "&gt;"
---  go b c  = b <> word8 c
-
-{-# INLINE escapeDjotAttribute #-}
-escapeDjotAttribute :: ByteString -> Layout.Doc Text
-escapeDjotAttribute bs =
-  undefined
---  if hasEscapable bs
---     then B.foldl' go mempty bs
---     else byteString bs
--- where
---  hasEscapable = B.any (\w -> w == 38 || w == 60 || w == 62 || w == 34)
---  go b 38 = b <> byteString "&amp;"
---  go b 60 = b <> byteString "&lt;"
---  go b 62 = b <> byteString "&gt;"
---  go b 34 = b <> byteString "&quot;"
---  go b c  = b <> word8 c
+escapeDjot :: EscapeContext -> Text -> Text
+escapeDjot context t = t -- TODO
 
 data BState =
   BState { noteMap :: NoteMap
@@ -91,7 +72,7 @@ instance ToLayout Blocks where
 instance ToLayout (Node Block) where
   toLayout (Node attr bl) =
     case bl of
-      Para ils -> undefined
+      Para ils -> ($$ blankline) <$> toLayout ils
       Heading lev ils -> undefined
       Section bls -> undefined
       ThematicBreak -> undefined
@@ -136,10 +117,18 @@ toDefinition listSpacing (term, defn) = undefined
 instance ToLayout (Node Inline) where
   toLayout (Node attr il) =
     case il of
-      Str bs -> pure $ escapeDjot bs
-      SoftBreak -> undefined
-      HardBreak -> undefined
-      NonBreakingSpace -> undefined
+      Str bs -> do
+        let chunks =
+              T.groupBy
+               (\c d -> c /= ' ' && d /= ' ')
+               (escapeDjot Normal $ fromUtf8 bs)
+        let toChunk ch = if T.all (== ' ') ch
+                            then space
+                            else literal $ ch
+        pure $ hcat $ map toChunk chunks
+      SoftBreak -> pure cr
+      HardBreak -> pure (literal "\\" <> cr)
+      NonBreakingSpace -> pure "\\ "
       Emph ils -> undefined
       Strong ils -> undefined
       Highlight ils -> undefined
