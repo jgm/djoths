@@ -841,14 +841,6 @@ incrementCurrentLine = do
   modifyP $ \st -> st{ psCurrentLine = psCurrentLine st + 1
                      , psCurrentLineStart = pos }
 
--- get indent in BYTES; this suffices for our needs because all the prefix
--- characters are single-byte in UTF-8 encoding.
--- getIndent :: P s Int
--- getIndent = do
---   Pos curpos <- getPos
---   Pos startpos <- ask >>= liftST . readSTRef . psCurrentLineStart
---   pure $ startpos - curpos
-
 -- | Return value is True if all continuations match.
 checkContinuations :: NonEmpty (Container s) -> P s Bool
 checkContinuations = go . reverse . NonEmpty.toList
