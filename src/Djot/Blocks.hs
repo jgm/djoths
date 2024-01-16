@@ -821,7 +821,7 @@ getsP f = do
 modifyP :: (PState s -> PState s) -> P s ()
 modifyP f = do
   ref <- ask
-  liftST (modifySTRef ref f)
+  liftST (modifySTRef' ref f)
 
 pDoc :: P s Doc
 pDoc = do
