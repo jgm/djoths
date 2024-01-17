@@ -9,7 +9,7 @@ module Djot.Blocks
 where
 
 import Prelude hiding (div)
-import Data.Char (isSpace, ord, isAsciiLower, isAsciiUpper, toLower)
+import Data.Char (isSpace, ord, isAsciiLower, isAsciiUpper)
 import Data.Foldable as F
 import qualified FlatParse.Stateful as FP
 import Djot.FlatParse
@@ -236,18 +236,25 @@ data Case = Uppercase | Lowercase
 -- | Parses a roman numeral (uppercase or lowercase), returns number.
 pRomanNumeral :: Case -> P s Int
 pRomanNumeral lettercase = do
-  lookahead $ skipSatisfyAscii' (`elem` ("IVXLCDMivxlcdm" :: [Char]))
+  lookahead $ do
+    skipSome $ skipSatisfyAscii' $
+      case lettercase of
+        Uppercase -> \c -> c == 'I' || c == 'V' || c == 'X' ||
+                           c == 'L' || c == 'C' || c == 'D' || c == 'M'
+        Lowercase -> \c -> c == 'i' || c == 'v' || c == 'x' ||
+                           c == 'l' || c == 'c' || c == 'd' || c == 'm'
+    skipSatisfyAscii' (\c -> c == ')' || c == '.')
   try $ do
-    let rchar uc = satisfyAscii' $ if lettercase == Uppercase
+    let rchar uc lc = satisfyAscii' $ if lettercase == Uppercase
                                       then (== uc)
-                                      else (== toLower uc)
-    let one         = rchar 'I'
-    let five        = rchar 'V'
-    let ten         = rchar 'X'
-    let fifty       = rchar 'L'
-    let hundred     = rchar 'C'
-    let fivehundred = rchar 'D'
-    let thousand    = rchar 'M'
+                                      else (== lc)
+    let one         = rchar 'I' 'i'
+    let five        = rchar 'V' 'v'
+    let ten         = rchar 'X' 'x'
+    let fifty       = rchar 'L' 'l'
+    let hundred     = rchar 'C' 'c'
+    let fivehundred = rchar 'D' 'd'
+    let thousand    = rchar 'M' 'm'
     thousands <- (1000 *) . length <$> many thousand
     ninehundreds <- option 0 $ try $ hundred >> thousand >> return 900
     fivehundreds <- option 0 $ 500 <$ fivehundred
