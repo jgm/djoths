@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module Djot.Blocks
@@ -32,6 +31,7 @@ import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
@@ -82,15 +82,6 @@ data BlockSpec s =
     -- block AST element.
   , blockFinalize :: Container s -> Blocks
   }
-
--- TODO:
--- [ ] pipe table
-
-specs :: [BlockSpec s]
-specs = [blockQuoteSpec, headingSpec, divSpec, thematicBreakSpec,
-         codeBlockSpec, listItemSpec, attrSpec,
-         referenceDefinitionSpec, footnoteSpec,
-         tableSpec, captionSpec]
 
 docSpec :: BlockSpec s
 docSpec =
@@ -890,19 +881,28 @@ processLine = do
           then c{ containerText = containerText c Seq.|> restOfLine } :| rest
           else c :| rest
 
--- | Return value is True if new containers were added.
+-- True if new container was started
 tryContainerStarts :: P s Bool
 tryContainerStarts = do
   (c :| _) <- getsP psContainerStack
   case blockContainsBlock (containerSpec c) of
-    Just bt ->
-      (do skipMany spaceOrTab
-          msum [blockStart sp | sp <- specs
-                              -- don't allow tables to contain anything but captions
-                              , (bt /= CaptionBlock || blockType sp == CaptionBlock)
-                              ]
-          True <$ tryContainerStarts)
-       <|> pure False
+    Just bt -> (do
+      skipMany spaceOrTab
+      nextc <- lookahead anyChar
+      msum $ map blockStart $
+               case nextc of
+                  '>' -> [blockQuoteSpec]
+                  '#' -> [headingSpec]
+                  ':' -> [divSpec, listItemSpec]
+                  '*' -> [thematicBreakSpec, listItemSpec]
+                  '-' -> [thematicBreakSpec, listItemSpec]
+                  '`' -> [codeBlockSpec]
+                  '{' -> [attrSpec]
+                  '[' -> [referenceDefinitionSpec, footnoteSpec]
+                  '|' | bt /= CaptionBlock -> [tableSpec]
+                  '^' | bt == CaptionBlock -> [captionSpec]
+                  _ -> [listItemSpec]
+      True <$ tryContainerStarts) <|> pure False
     _ -> pure False
 
 -- | Close and finalize containers, returning Blocks.
