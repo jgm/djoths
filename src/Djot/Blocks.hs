@@ -863,20 +863,20 @@ processLine = do
 
   isBlank <- (True <$ lookahead pBlankLine) <|> pure False
 
-  -- determine if we have a lazy line
-  let isLazy = not (allContainersMatch || newContainersAdded || isBlank) &&
-               blockName (containerSpec (NonEmpty.head containers)) == "Para"
+  unless isBlank $ do
+    -- determine if we have a lazy line
+    let isLazy = not (allContainersMatch || newContainersAdded) &&
+                 blockName (containerSpec (NonEmpty.head containers)) == "Para"
 
-  when isLazy $ -- restore original containers
-     modifyP (\st -> st{ psContainerStack = containers })
+    when isLazy $ -- restore original containers
+       modifyP (\st -> st{ psContainerStack = containers })
 
-  tip <- getTip
+    tip <- getTip
 
-  when (not isBlank &&
-        blockContainsBlock (containerSpec tip) == Just Normal) $ do
-    -- add a paragraph container
-    skipMany spaceOrTab
-    blockStart paraSpec
+    when (blockContainsBlock (containerSpec tip) == Just Normal) $ do
+      -- add a paragraph container
+      skipMany spaceOrTab
+      blockStart paraSpec
 
   restOfLine <- pLine
   -- if current container is a line container, add remainder of line
