@@ -849,7 +849,7 @@ checkContinuations = go . reverse . NonEmpty.toList
                           replicateM_ (length (c:cs)) closeCurrentContainer
 
 processLines :: P s ()
-processLines = void $ many processLine
+processLines = skipMany processLine
 
 processLine :: P s ()
 processLine = do
