@@ -31,7 +31,6 @@ import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
@@ -608,13 +607,14 @@ codeBlockSpec =
       addContainer codeBlockSpec (CodeBlockData ticks lang indent)
   , blockContinue = \container -> do
       let CodeBlockData ticks _ indent = getContainerData container
+      gobbleSpaceToIndent indent
       try (do skipMany spaceOrTab
               byteString ticks
               skipMany (asciiChar' '`')
               skipMany spaceOrTab
               lookahead endline
               pure False)
-        <|> (True <$ gobbleSpaceToIndent indent)
+        <|> pure True
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = pure
