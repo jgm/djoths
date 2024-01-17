@@ -122,10 +122,10 @@ listItemSpec =
                 curind <- getIndent
                 let liData = getContainerData container
                 tip :| _ <- getsP psContainerStack
+                guard (curind <= liIndent liData)
                 case blockName (containerSpec tip) of
                   "Para" -> void pListStart
-                  _ -> pure ()
-                guard (curind <= liIndent liData))
+                  _ -> pure ())
         <|> pure False
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
@@ -141,7 +141,7 @@ data ListType =
   deriving (Show, Ord, Eq)
 
 pListStart :: P s [ListType]
-pListStart = pBulletListStart <|> pOrderedListStart <|> pDefinitionListStart
+pListStart = pBulletListStart <|> pDefinitionListStart <|> pOrderedListStart
 
 pBulletListStart :: P s [ListType]
 pBulletListStart = do
@@ -194,9 +194,12 @@ groupLists = snd . foldl' go ([], mempty)
 pOrderedListStart :: P s [ListType]
 pOrderedListStart = try $ do
   openParen <- (True <$ asciiChar' '(') <|> pure False
-  stylesAndStarts <- decimalStart
-                 <|> romanLowerStart <|> romanUpperStart
-                 <|> letterLowerStart <|> letterUpperStart
+  lookahead $ do
+    skipSome $ skipSatisfyAscii' (\c -> (c >= '0' && c <= '9') ||
+                                        (c >= 'a' && c <= 'z') ||
+                                        (c >= 'A' && c <= 'Z'))
+    skipSatisfyAscii' (\c -> c == '.' || c == ')')
+  stylesAndStarts <- decimalStart <|> romanStart <|> letterStart
   delimType <-
     if openParen
        then LeftRightParen <$ asciiChar' ')'
@@ -211,39 +214,45 @@ pOrderedListStart = try $ do
   decimalStart = do
     n <- anyAsciiDecimalInt
     pure [(Decimal, n)]
-  letterLowerStart = do
-    c <- satisfyAscii' isAsciiLower
-    pure [(LetterLower, 1 + (ord c - ord 'a'))]
-  letterUpperStart = do
-    c <- satisfyAscii' isAsciiUpper
-    pure [(LetterUpper, 1 + (ord c - ord 'A'))]
-  romanLowerStart = do
-    (n, raw) <- withByteString (pRomanNumeral Lowercase) (curry pure)
-    pure $ (RomanLower, n) :
-           case B8.unpack raw of
-             [c] -> [(LetterLower, 1 + (ord c - ord 'a'))]
-             _ -> []
-  romanUpperStart = do
-    (n, raw) <- withByteString (pRomanNumeral Uppercase) (curry pure)
-    pure $ (RomanUpper, n) :
-           case B8.unpack raw of
-             [c] -> [(LetterUpper, 1 + (ord c - ord 'A'))]
-             _ -> []
+  letterStart = do
+    c <- satisfyAscii' (\c -> isAsciiLower c || isAsciiUpper c)
+    if isAsciiLower c
+       then pure [(LetterLower, 1 + (ord c - ord 'a'))]
+       else pure [(LetterUpper, 1 + (ord c - ord 'A'))]
+  romanStart = do
+    (n, lettercase) <- pRomanNumeral
+    let sty = if lettercase == Uppercase then RomanUpper else RomanLower
+    let altsty = if lettercase == Uppercase then LetterUpper else LetterLower
+    pure $ (sty, n) :
+      case n of
+        1 -> [(altsty, 9)]
+        5 -> [(altsty, 22)]
+        10 -> [(altsty, 24)]
+        50 -> [(altsty, 12)]
+        100 -> [(altsty, 3)]
+        500 -> [(altsty, 4)]
+        1000 -> [(altsty, 13)]
+        _ -> []
 
 data Case = Uppercase | Lowercase
   deriving (Eq)
 
--- | Parses a roman numeral (uppercase or lowercase), returns number.
-pRomanNumeral :: Case -> P s Int
-pRomanNumeral lettercase = do
-  lookahead $ do
-    skipSome $ skipSatisfyAscii' $
-      case lettercase of
-        Uppercase -> \c -> c == 'I' || c == 'V' || c == 'X' ||
+pRomanNumeral :: P s (Int, Case)
+pRomanNumeral = do
+  let isUpperRomanChar c = c == 'I' || c == 'V' || c == 'X' ||
                            c == 'L' || c == 'C' || c == 'D' || c == 'M'
-        Lowercase -> \c -> c == 'i' || c == 'v' || c == 'x' ||
+  let isLowerRomanChar c = c == 'i' || c == 'v' || c == 'x' ||
                            c == 'l' || c == 'c' || c == 'd' || c == 'm'
-    skipSatisfyAscii' (\c -> c == ')' || c == '.')
+  let isRomanChar c = isUpperRomanChar c || isLowerRomanChar c
+  lettercase <- lookahead $ do
+    c <- satisfyAscii' isRomanChar
+    let lettercase = if isUpperRomanChar c then Uppercase else Lowercase
+    skipMany $ skipSatisfyAscii' $
+      case lettercase of
+        Uppercase -> isUpperRomanChar
+        Lowercase -> isLowerRomanChar
+    skipSatisfyAscii' (\d -> d == ')' || d == '.')
+    pure lettercase
   try $ do
     let rchar uc lc = satisfyAscii' $ if lettercase == Uppercase
                                       then (== uc)
@@ -273,7 +282,7 @@ pRomanNumeral lettercase = do
                 fives + fours + ones
     if total == 0
        then mzero
-       else return total
+       else return (total, lettercase)
  where
    option defval p = p <|> pure defval
 
