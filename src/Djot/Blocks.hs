@@ -235,36 +235,38 @@ data Case = Uppercase | Lowercase
 
 -- | Parses a roman numeral (uppercase or lowercase), returns number.
 pRomanNumeral :: Case -> P s Int
-pRomanNumeral lettercase = try $ do
-  let rchar uc = satisfyAscii' $ if lettercase == Uppercase
-                                    then (== uc)
-                                    else (== toLower uc)
-  let one         = rchar 'I'
-  let five        = rchar 'V'
-  let ten         = rchar 'X'
-  let fifty       = rchar 'L'
-  let hundred     = rchar 'C'
-  let fivehundred = rchar 'D'
-  let thousand    = rchar 'M'
-  thousands <- (1000 *) . length <$> many thousand
-  ninehundreds <- option 0 $ try $ hundred >> thousand >> return 900
-  fivehundreds <- option 0 $ 500 <$ fivehundred
-  fourhundreds <- option 0 $ try $ hundred >> fivehundred >> return 400
-  hundreds <- (100 *) . length <$> many hundred
-  nineties <- option 0 $ try $ ten >> hundred >> return 90
-  fifties <- option 0 (50 <$ fifty)
-  forties <- option 0 $ try $ ten >> fifty >> return 40
-  tens <- (10 *) . length <$> many ten
-  nines <- option 0 $ try $ one >> ten >> return 9
-  fives <- option 0 (5 <$ five)
-  fours <- option 0 $ try $ one >> five >> return 4
-  ones <- length <$> many one
-  let total = thousands + ninehundreds + fivehundreds + fourhundreds +
-              hundreds + nineties + fifties + forties + tens + nines +
-              fives + fours + ones
-  if total == 0
-     then mzero
-     else return total
+pRomanNumeral lettercase = do
+  lookahead $ skipSatisfyAscii' (`elem` ("IVXLCDMivxlcdm" :: [Char]))
+  try $ do
+    let rchar uc = satisfyAscii' $ if lettercase == Uppercase
+                                      then (== uc)
+                                      else (== toLower uc)
+    let one         = rchar 'I'
+    let five        = rchar 'V'
+    let ten         = rchar 'X'
+    let fifty       = rchar 'L'
+    let hundred     = rchar 'C'
+    let fivehundred = rchar 'D'
+    let thousand    = rchar 'M'
+    thousands <- (1000 *) . length <$> many thousand
+    ninehundreds <- option 0 $ try $ hundred >> thousand >> return 900
+    fivehundreds <- option 0 $ 500 <$ fivehundred
+    fourhundreds <- option 0 $ try $ hundred >> fivehundred >> return 400
+    hundreds <- (100 *) . length <$> many hundred
+    nineties <- option 0 $ try $ ten >> hundred >> return 90
+    fifties <- option 0 (50 <$ fifty)
+    forties <- option 0 $ try $ ten >> fifty >> return 40
+    tens <- (10 *) . length <$> many ten
+    nines <- option 0 $ try $ one >> ten >> return 9
+    fives <- option 0 (5 <$ five)
+    fours <- option 0 $ try $ one >> five >> return 4
+    ones <- length <$> many one
+    let total = thousands + ninehundreds + fivehundreds + fourhundreds +
+                hundreds + nineties + fifties + forties + tens + nines +
+                fives + fours + ones
+    if total == 0
+       then mzero
+       else return total
  where
    option defval p = p <|> pure defval
 
