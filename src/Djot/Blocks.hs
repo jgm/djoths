@@ -90,7 +90,7 @@ specs :: [BlockSpec s]
 specs = [blockQuoteSpec, headingSpec, divSpec, thematicBreakSpec,
          codeBlockSpec, listItemSpec, attrSpec,
          referenceDefinitionSpec, footnoteSpec,
-         tableSpec, captionSpec, paraSpec]
+         tableSpec, captionSpec]
 
 docSpec :: BlockSpec s
 docSpec =
@@ -900,9 +900,6 @@ tryContainerStarts = do
           msum [blockStart sp | sp <- specs
                               -- don't allow tables to contain anything but captions
                               , (bt /= CaptionBlock || blockType sp == CaptionBlock)
-                                -- we open Para blocks later
-                              , blockName sp /= "Para"
-                              , blockType sp /= Document
                               ]
           True <$ tryContainerStarts)
        <|> pure False
