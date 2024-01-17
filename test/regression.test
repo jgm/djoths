@@ -78,3 +78,16 @@ def
 <h1>New heading</h1>
 </section>
 ```
+
+Block quotes with markers unaligned:
+
+```
+> foo
+ > bar
+.
+<blockquote>
+<p>foo
+bar</p>
+</blockquote>
+```
+

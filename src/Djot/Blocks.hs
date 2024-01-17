@@ -412,8 +412,12 @@ blockQuoteSpec =
       lookahead ws
       skipMany spaceOrTab
       addContainer blockQuoteSpec ()
-  , blockContinue = \_ -> (False <$ lookahead pBlankLine)
-       <|> (True <$ try (asciiChar' '>' *> lookahead ws *> skipMany spaceOrTab))
+  , blockContinue = \_ -> do
+      skipMany spaceOrTab
+      asciiChar' '>'
+      lookahead ws
+      skipMany spaceOrTab
+      pure True
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
   , blockClose = pure
@@ -633,7 +637,8 @@ divSpec =
   { blockName = "Div"
   , blockType = Normal
   , blockStart = try $ do
-      colons <- byteStringOf $ asciiChar' ':' *> asciiChar' ':' *> skipSome (asciiChar' ':')
+      colons <- byteStringOf $
+        asciiChar' ':' *> asciiChar' ':' *> skipSome (asciiChar' ':')
       skipMany spaceOrTab
       label <- byteStringOf $ skipMany $ skipSatisfy' (not . isSpace)
       skipMany spaceOrTab
@@ -899,7 +904,7 @@ tryContainerStarts = do
                   '`' -> [codeBlockSpec]
                   '{' -> [attrSpec]
                   '[' -> [referenceDefinitionSpec, footnoteSpec]
-                  '|' | bt /= CaptionBlock -> [tableSpec]
+                  '|' | bt == Normal -> [tableSpec]
                   '^' | bt == CaptionBlock -> [captionSpec]
                   _ -> [listItemSpec]
       True <$ tryContainerStarts) <|> pure False
