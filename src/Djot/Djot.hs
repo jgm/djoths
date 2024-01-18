@@ -38,6 +38,7 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                , noteOrder = mempty
                                , referenceMap = docReferences doc
                                , afterSpace = True
+                               , divNestingLevel = 0
                                , nestings = IntMap.fromList
                                   -- anything not in this list
                                   -- will ALWAYS get {}:
@@ -52,6 +53,7 @@ data BState =
          , noteOrder :: M.Map ByteString Int
          , referenceMap :: ReferenceMap
          , afterSpace :: Bool
+         , divNestingLevel :: Int
          , nestings :: IntMap.IntMap Int
          }
 
@@ -144,14 +146,38 @@ instance ToLayout (Node Block) where
                     Tight -> vcat . map chomp
                     Loose -> vsep) <$>
                  mapM toTaskListItem items
-               Div bls -> undefined
+               Div bls -> do
+                 level <- gets divNestingLevel
+                 modify $ \st -> st{ divNestingLevel = level + 1 }
+                 contents <- toLayout bls
+                 modify $ \st -> st{ divNestingLevel = level }
+                 let colons = literal (T.replicate (level + 3) ":")
+                 pure $ colons $$ contents $$ colons
                BlockQuote bls -> prefixed "> " <$> toLayout bls
-               CodeBlock lang bs -> undefined
-               Table mbCaption rows -> undefined
+               CodeBlock lang bs -> do
+                 let longesttickline = maximum
+                                   $ map (B8.length . B8.takeWhile (=='`'))
+                                   $ B8.lines bs
+                 let numticks = max 3 longesttickline
+                 let ticks = literal $ T.replicate numticks "`"
+                 let lang' = if lang == mempty
+                                then mempty
+                                else literal (fromUtf8 lang)
+                 pure $ ticks <+> lang' $$ literal (fromUtf8 bs) $$ ticks
+               Table mbCaption rows -> do
+                 caption <- case mbCaption of
+                               Nothing -> pure mempty
+                               Just (Caption bls)
+                                       -> hang 2 "^" <$> toLayout bls
+                 body <- vcat <$> mapM toTableRow rows
+                 pure $ body $+$ caption
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs) $$ blankline
                RawBlock _ _ -> pure mempty
          <* modify (\st -> st{ afterSpace = True })
+
+toTableRow :: [Cell] -> State BState (Layout.Doc Text)
+toTableRow cells = undefined -- TODO
 
 toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
 toDefinitionListItem = undefined -- TODO
