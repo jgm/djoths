@@ -9,7 +9,6 @@ module Djot.Html
 where
 
 import Djot.AST
-import Djot.Options (RenderOptions(..))
 import Data.Tuple (swap)
 import Djot.FlatParse (strToUtf8)
 import Data.ByteString (ByteString)
@@ -23,14 +22,13 @@ import Data.List (sort)
 import Control.Monad.State
 import qualified Data.Foldable as F
 
-renderHtml :: RenderOptions -> Doc -> Builder
-renderHtml opts doc = evalState ( (<>) <$> toBuilder (docBlocks doc)
-                                       <*> toNotes )
+renderHtml :: Doc -> Builder
+renderHtml doc = evalState ( (<>) <$> toBuilder (docBlocks doc)
+                                 <*> toNotes )
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty
                                , renderedNotes = mempty
-                               , referenceMap = docReferences doc
-                               , options = opts }
+                               , referenceMap = docReferences doc }
 
 toNotes :: State BState Builder
 toNotes = do
@@ -96,7 +94,6 @@ data BState =
          , noteRefs :: M.Map ByteString Int
          , renderedNotes :: M.Map ByteString Builder
          , referenceMap :: ReferenceMap
-         , options :: RenderOptions
          }
 
 {-# SPECIALIZE toBuilder :: Blocks -> State BState Builder #-}
@@ -236,11 +233,7 @@ instance ToBuilder (Node Inline) where
   toBuilder (Node attr il) =
     case il of
       Str bs -> pure $ escapeHtml bs
-      SoftBreak -> do
-        opts <- gets options
-        pure $ if optPreserveSoftBreaks opts
-                  then word8 10
-                  else " "
+      SoftBreak -> pure $ word8 10
       HardBreak -> pure $ singleTag "br" attr <> "\n"
       NonBreakingSpace -> pure $ byteString "&nbsp;"
       Emph ils -> inTags "em" attr <$> toBuilder ils
