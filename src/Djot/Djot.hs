@@ -151,21 +151,6 @@ toRow cells = undefined
 toCell :: Cell -> State BState (Layout.Doc Text)
 toCell (Cell cellType align ils) = undefined
 
-{-
-toItemContents :: ListSpacing -> Blocks -> State BState (Layout.Doc Text)
-toItemContents listSpacing = fmap F.fold . mapM go . unBlocks
- where
-   go (Node attr bl) =
-    case bl of
-      Para ils
-        | listSpacing == Tight ->
-            if attr == mempty
-               then toLayout ils
-               else {- TODO -} toLayout ils
-        | otherwise -> toLayout (Node attr bl)
-      _ -> toLayout (Node attr bl)
--}
-
 instance ToLayout (Node Inline) where
   toLayout (Node attr il) = (<>)
     <$> case il of
