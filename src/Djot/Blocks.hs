@@ -786,8 +786,8 @@ paraSpec =
   , blockContainsLines = True
   , blockClose = \container -> do
       ils <- parseTextLines container
-      pure $ container{ containerData = toDyn ils }
-  , blockFinalize = para . getContainerData
+      pure $ container{ containerInlines = ils }
+  , blockFinalize = para . containerInlines
   }
 
 parseTextLines :: Container s -> P s Inlines
@@ -798,6 +798,7 @@ emptyContainer =
   Container { containerSpec = docSpec
             , containerChildren = mempty
             , containerText = mempty
+            , containerInlines = mempty
             , containerStartLine = 1
             , containerEndLine = 0
             , containerData = toDyn ()
@@ -809,6 +810,7 @@ data Container s =
   { containerSpec      :: BlockSpec s
   , containerChildren  :: Seq (Container s)
   , containerText :: Seq ByteString
+  , containerInlines :: Inlines
   , containerStartLine :: Int
   , containerEndLine   :: Int
   , containerData :: Dynamic
