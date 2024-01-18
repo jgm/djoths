@@ -203,7 +203,10 @@ toTableRow :: [Cell] -> State BState (Layout.Doc Text)
 toTableRow cells = undefined -- TODO
 
 toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
-toDefinitionListItem = undefined -- TODO
+toDefinitionListItem (term, def) = do
+  term' <- toLayout term
+  def' <- toLayout def
+  pure $ hang 2 ":" $ term' $+$ def'
 
 toTaskListItem :: (TaskStatus, Blocks) -> State BState (Layout.Doc Text)
 toTaskListItem = undefined -- TODO
@@ -254,8 +257,14 @@ instance ToLayout (Node Inline) where
                     case attr of  -- there must be attributes for it to be a span
                       Attr [] -> "{}"
                       _ -> mempty
-          Link ils target -> undefined
-          Image ils target -> undefined
+          Link ils target -> do
+            contents <- toLayout ils
+            let suffix = toLinkSuffix target contents
+            pure $ "[" <> contents <> "]" <> suffix
+          Image ils target -> do
+            contents <- toLayout ils
+            let suffix = toLinkSuffix target contents
+            pure $ "!" <> contents <> "]" <> suffix
           EmailLink email -> pure $ "<" <> literal (fromUtf8 email) <> ">"
           UrlLink url -> pure $ "<" <> literal (fromUtf8 url) <> ">"
           RawInline (Format "djot") bs -> pure $ literal (fromUtf8 bs)
@@ -277,6 +286,12 @@ instance ToLayout (Node Inline) where
                          HardBreak -> True
                          NonBreakingSpace -> True
                          _ -> False })
+
+toLinkSuffix :: Target -> Layout.Doc Text -> Layout.Doc Text
+toLinkSuffix (Direct url) _ = literal $ "(" <> fromUtf8 url <> ")"
+toLinkSuffix (Reference label) d
+  | render Nothing d == fromUtf8 label = literal "[]"
+  | otherwise = literal $ "[" <> fromUtf8 label <> "]"
 
 toVerbatimSpan :: ByteString -> Layout.Doc Text
 toVerbatimSpan bs =
