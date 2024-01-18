@@ -107,25 +107,39 @@ instance ToLayout (Node Block) where
                ThematicBreak -> pure $ literal "* * * *" $$ blankline
                BulletList listSpacing items ->
                  (case listSpacing of
-                    Tight -> vcat
+                    Tight -> vcat . map chomp
                     Loose -> vsep) <$>
                  mapM (fmap (hang 2 "-") . toLayout) items
                OrderedList listAttr listSpacing items ->
                  (case listSpacing of
-                    Tight -> vcat
+                    Tight -> vcat . map chomp
                     Loose -> vsep) <$>
                  zipWithM (toOrderedListItem listAttr)
                           [(orderedListStart listAttr)..]
                           items
-               DefinitionList listSpacing defs -> undefined
-               TaskList listSpacing items -> undefined
+               DefinitionList listSpacing items ->
+                 (case listSpacing of
+                    Tight -> vcat . map chomp
+                    Loose -> vsep) <$>
+                 mapM toDefinitionListItem items
+               TaskList listSpacing items ->
+                 (case listSpacing of
+                    Tight -> vcat . map chomp
+                    Loose -> vsep) <$>
+                 mapM toTaskListItem items
                Div bls -> undefined
-               BlockQuote bls -> undefined
+               BlockQuote bls -> prefixed "> " <$> toLayout bls
                CodeBlock lang bs -> undefined
                Table mbCaption rows -> undefined
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs) $$ blankline
                RawBlock _ _ -> pure mempty
+
+toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
+toDefinitionListItem = undefined -- TODO
+
+toTaskListItem :: (TaskStatus, Blocks) -> State BState (Layout.Doc Text)
+toTaskListItem = undefined -- TODO
 
 toOrderedListItem :: OrderedListAttributes -> Int -> Blocks
                   -> State BState (Layout.Doc Text)
@@ -137,6 +151,7 @@ toRow cells = undefined
 toCell :: Cell -> State BState (Layout.Doc Text)
 toCell (Cell cellType align ils) = undefined
 
+{-
 toItemContents :: ListSpacing -> Blocks -> State BState (Layout.Doc Text)
 toItemContents listSpacing = fmap F.fold . mapM go . unBlocks
  where
@@ -149,14 +164,7 @@ toItemContents listSpacing = fmap F.fold . mapM go . unBlocks
                else {- TODO -} toLayout ils
         | otherwise -> toLayout (Node attr bl)
       _ -> toLayout (Node attr bl)
-
-toTaskListItem :: ListSpacing -> (TaskStatus, Blocks)
-               -> State BState (Layout.Doc Text)
-toTaskListItem listSpacing (status, bs) = undefined
-
-toDefinition :: ListSpacing -> (Inlines, Blocks)
-             -> State BState (Layout.Doc Text)
-toDefinition listSpacing (term, defn) = undefined
+-}
 
 instance ToLayout (Node Inline) where
   toLayout (Node attr il) = (<>)
