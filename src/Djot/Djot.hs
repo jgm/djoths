@@ -183,13 +183,24 @@ instance ToLayout (Node Inline) where
       NonBreakingSpace -> pure "\\ "
       Emph ils -> undefined
       Strong ils -> undefined
-      Highlight ils -> undefined
-      Insert ils -> undefined
-      Delete ils -> undefined
+      Highlight ils -> do
+        contents <- toLayout ils
+        pure $ "{=" <> contents <> "=}"
+      Insert ils -> do
+        contents <- toLayout ils
+        pure $ "{+" <> contents <> "+}"
+      Delete ils -> do
+        contents <- toLayout ils
+        pure $ "{-" <> contents <> "-}"
       Superscript ils -> undefined
       Subscript ils -> undefined
-      Verbatim bs -> undefined
-      Math mt bs -> undefined
+      Verbatim bs -> pure $ toVerbatimSpan bs
+      Math mt bs -> do
+        let suffix = toVerbatimSpan bs
+        let prefix = case mt of
+                        DisplayMath -> "$$"
+                        InlineMath -> "$"
+        pure $ prefix <> suffix
       Symbol bs -> undefined
       Span ils -> undefined
       Link ils target -> undefined
@@ -215,3 +226,6 @@ instance ToLayout (Node Inline) where
                    pure num
         let num' = B8.pack $ show num
         undefined
+
+toVerbatimSpan :: ByteString -> Layout.Doc Text
+toVerbatimSpan bs = undefined
