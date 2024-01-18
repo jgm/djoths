@@ -35,8 +35,7 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                notes <- toNotes
                                pure $ body $$ refs $$ notes)
                          BState{ noteMap = docFootnotes doc
-                               , noteRefs = mempty
-                               , renderedNotes = mempty
+                               , noteOrder = mempty
                                , referenceMap = docReferences doc
                                , afterSpace = True
                                , nestings = IntMap.fromList
@@ -48,6 +47,14 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                   ,(ord '^', 0)]
                                }
 
+data BState =
+  BState { noteMap :: NoteMap
+         , noteOrder :: M.Map ByteString Int
+         , referenceMap :: ReferenceMap
+         , afterSpace :: Bool
+         , nestings :: IntMap.IntMap Int
+         }
+
 toReferences :: State BState (Layout.Doc Text)
 toReferences = do
   st <- get
@@ -56,11 +63,17 @@ toReferences = do
 
 toNotes :: State BState (Layout.Doc Text)
 toNotes = do
-  st <- get
-  let noterefs = noteRefs st
-  let numnotes = M.size noterefs
-  let revnoterefs = sort $ map swap $ M.toList noterefs
-  pure mempty -- TODO implement this
+  noterefs <- gets noteOrder
+  let labels = map snd $ sort $ map swap $ M.toList noterefs
+  vsep <$> mapM toNote labels
+
+toNote :: ByteString -> State BState (Layout.Doc Text)
+toNote label = do
+  notes <- gets noteMap
+  case lookupNote label notes of
+    Nothing -> pure mempty
+    Just bls ->
+      hang 4 (toNoteRef label <> ":" <> space) <$> toLayout bls
 
 fromUtf8 :: ByteString -> Text
 fromUtf8 = decodeUtf8With lenientDecode
@@ -70,15 +83,6 @@ data EscapeContext = Normal | Attribute
 {-# INLINE escapeDjot #-}
 escapeDjot :: EscapeContext -> Text -> Text
 escapeDjot context t = t -- TODO
-
-data BState =
-  BState { noteMap :: NoteMap
-         , noteRefs :: M.Map ByteString Int
-         , renderedNotes :: M.Map ByteString (Layout.Doc Text)
-         , referenceMap :: ReferenceMap
-         , afterSpace :: Bool
-         , nestings :: IntMap.IntMap Int
-         }
 
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
 {-# SPECIALIZE toLayout :: Inlines -> State BState (Layout.Doc Text) #-}
@@ -208,23 +212,14 @@ instance ToLayout (Node Inline) where
           RawInline (Format "djot") bs -> pure $ literal (fromUtf8 bs)
           RawInline _ _ -> pure mempty
           FootnoteReference label -> do
-            noterefs <- gets noteRefs
-            notemap <- gets noteMap
-            num <- case M.lookup label noterefs of
-                     Just num -> pure num
-                     Nothing -> do
-                       let num = M.size noterefs + 1
-                       modify $ \st -> st{ noteRefs = M.insert label num noterefs }
-                       renderedNotesMap <- gets renderedNotes
-                       case M.lookup label renderedNotesMap of
-                         Just _ -> pure ()
-                         Nothing -> do -- render the note and add to renderedNotes
-                           let num' = B8.pack (show num)
-                           undefined
-                       pure num
-            let num' = B8.pack $ show num
-            undefined
-    <*> toLayout attr
+            order <- gets noteOrder
+            case M.lookup label order of
+              Nothing -> modify $ \st ->
+                            st{ noteOrder =
+                                  M.insert label (M.size order + 1) order }
+              Just _ -> pure ()
+            pure $ toNoteRef label
+   <*> toLayout attr
     <* modify (\st ->
                  st{ afterSpace =
                       case il of
@@ -263,3 +258,6 @@ surround c ils = do
          not (startBeforeSpace || endAfterSpace)
        then core
        else char '{' <> core <> char '}'
+
+toNoteRef :: ByteString -> Layout.Doc Text
+toNoteRef bs = literal ("[^" <> fromUtf8 bs <> "]")
