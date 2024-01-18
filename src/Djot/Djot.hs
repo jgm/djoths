@@ -36,7 +36,12 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                , noteRefs = mempty
                                , renderedNotes = mempty
                                , referenceMap = docReferences doc
-                               , afterSpace = True }
+                               , afterSpace = True
+                               , inEmph = False
+                               , inStrong = False
+                               , inSuperscript = False
+                               , inSubscript = False
+                               }
 
 toReferences :: State BState (Layout.Doc Text)
 toReferences = do
@@ -67,6 +72,10 @@ data BState =
          , renderedNotes :: M.Map ByteString (Layout.Doc Text)
          , referenceMap :: ReferenceMap
          , afterSpace :: Bool
+         , inEmph :: Bool
+         , inStrong :: Bool
+         , inSuperscript :: Bool
+         , inSubscript :: Bool
          }
 
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
@@ -176,10 +185,15 @@ instance ToLayout (Node Inline) where
                           Node _ (Str bs) Seq.:< _ ->
                               isWhite (B8.take 1 bs)
                           _ -> False
+            oldInEmph <- gets inEmph
+            modify $ \st -> st{ inEmph = True }
             contents <- toLayout ils
+            modify $ \st -> st{ inEmph = oldInEmph }
             endAfterSpace <- gets afterSpace
+            inemph <- gets inEmph
             pure $
-              if startAfterSpace && not (startBeforeSpace || endAfterSpace)
+              if startAfterSpace &&
+                   not (startBeforeSpace || endAfterSpace || inemph)
                  then "_" <> contents <> "_"
                  else "{_" <> contents <> "_}"
           Strong ils -> do -- TODO avoid {} in favorable cases
