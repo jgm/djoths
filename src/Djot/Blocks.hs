@@ -666,8 +666,8 @@ divSpec =
       tip <- getTip
       -- see jgm/djot.js#109
       guard $ blockName (containerSpec tip) /= "CodeBlock"
-      let DivData colons _ = getContainerData container
       skipMany spaceOrTab
+      let DivData colons _ = getContainerData container
       byteString colons
       skipMany (asciiChar' ':')
       skipMany spaceOrTab
@@ -779,7 +779,9 @@ paraSpec =
   { blockName = "Para"
   , blockType = Normal
   , blockStart = fails pBlankLine *> addContainer paraSpec (mempty :: Inlines)
-  , blockContinue = \_ -> (False <$ lookahead pBlankLine) <|> pure True
+  , blockContinue = \_ -> do
+      skipMany spaceOrTab
+      (False <$ lookahead (endline <|> eof)) <|> pure True
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = \container -> do
