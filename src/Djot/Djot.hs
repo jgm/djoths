@@ -9,6 +9,7 @@ where
 
 import Djot.AST
 import Data.Tuple (swap)
+import Data.Char (ord)
 import Djot.FlatParse (strToUtf8)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
@@ -26,6 +27,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
+import qualified Data.IntMap.Strict as IntMap
 
 renderDjot :: Doc -> Layout.Doc Text
 renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
@@ -37,10 +39,13 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                , renderedNotes = mempty
                                , referenceMap = docReferences doc
                                , afterSpace = True
-                               , inEmph = False
-                               , inStrong = False
-                               , inSuperscript = False
-                               , inSubscript = False
+                               , nestings = IntMap.fromList
+                                  -- anything not in this list
+                                  -- will ALWAYS get {}:
+                                  [(ord '_', 0)
+                                  ,(ord '*', 0)
+                                  ,(ord '~', 0)
+                                  ,(ord '^', 0)]
                                }
 
 toReferences :: State BState (Layout.Doc Text)
@@ -72,10 +77,7 @@ data BState =
          , renderedNotes :: M.Map ByteString (Layout.Doc Text)
          , referenceMap :: ReferenceMap
          , afterSpace :: Bool
-         , inEmph :: Bool
-         , inStrong :: Bool
-         , inSuperscript :: Bool
-         , inSubscript :: Bool
+         , nestings :: IntMap.IntMap Int
          }
 
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
@@ -178,42 +180,13 @@ instance ToLayout (Node Inline) where
           SoftBreak -> pure cr
           HardBreak -> pure (literal "\\" <> cr)
           NonBreakingSpace -> pure "\\ "
-          Emph ils -> do
-            startAfterSpace <- gets afterSpace
-            let startBeforeSpace =
-                  case Seq.viewl (unInlines ils) of
-                          Node _ (Str bs) Seq.:< _ ->
-                              isWhite (B8.take 1 bs)
-                          _ -> False
-            oldInEmph <- gets inEmph
-            modify $ \st -> st{ inEmph = True }
-            contents <- toLayout ils
-            modify $ \st -> st{ inEmph = oldInEmph }
-            endAfterSpace <- gets afterSpace
-            inemph <- gets inEmph
-            pure $
-              if startAfterSpace &&
-                   not (startBeforeSpace || endAfterSpace || inemph)
-                 then "_" <> contents <> "_"
-                 else "{_" <> contents <> "_}"
-          Strong ils -> do -- TODO avoid {} in favorable cases
-            contents <- toLayout ils
-            pure $ "{*" <> contents <> "*}"
-          Highlight ils -> do
-            contents <- toLayout ils
-            pure $ "{=" <> contents <> "=}"
-          Insert ils -> do
-            contents <- toLayout ils
-            pure $ "{+" <> contents <> "+}"
-          Delete ils -> do
-            contents <- toLayout ils
-            pure $ "{-" <> contents <> "-}"
-          Superscript ils -> do -- TODO avoid {} in favorable cases
-            contents <- toLayout ils
-            pure $ "{^" <> contents <> "^}"
-          Subscript ils -> do -- TODO avoid {} in favorable cases
-            contents <- toLayout ils
-            pure $ "{~" <> contents <> "~}"
+          Emph ils -> surround '_' ils
+          Strong ils -> surround '*' ils
+          Highlight ils -> surround '=' ils
+          Insert ils -> surround '+' ils
+          Delete ils -> surround '-' ils
+          Superscript ils -> surround '^' ils
+          Subscript ils -> surround '~' ils
           Verbatim bs -> pure $ toVerbatimSpan bs
           Math mt bs -> do
             let suffix = toVerbatimSpan bs
@@ -268,3 +241,25 @@ isWhite :: ByteString -> Bool
 isWhite " " = True
 isWhite "\t" = True
 isWhite _ = False
+
+surround :: Char -> Inlines -> State BState (Layout.Doc Text)
+surround c ils = do
+  startAfterSpace <- gets afterSpace
+  let startBeforeSpace =
+        case Seq.viewl (unInlines ils) of
+                Node _ (Str bs) Seq.:< _ ->
+                    isWhite (B8.take 1 bs)
+                _ -> False
+  modify $ \st -> st{ nestings = IntMap.adjust (+ 1) (ord c) (nestings st)}
+  contents <- toLayout ils
+  modify $ \st -> st{ nestings = IntMap.adjust (\x -> x - 1)
+                        (ord c) (nestings st)}
+  endAfterSpace <- gets afterSpace
+  nestingLevel <- gets (fromMaybe 1 . IntMap.lookup (ord c) . nestings)
+  let core = char c <> contents <> char c
+  pure $
+    if nestingLevel == 0 &&
+         startAfterSpace &&
+         not (startBeforeSpace || endAfterSpace)
+       then core
+       else char '{' <> core <> char '}'
