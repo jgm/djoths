@@ -35,7 +35,8 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty
                                , renderedNotes = mempty
-                               , referenceMap = docReferences doc }
+                               , referenceMap = docReferences doc
+                               , afterSpace = True }
 
 toReferences :: State BState (Layout.Doc Text)
 toReferences = do
@@ -65,6 +66,7 @@ data BState =
          , noteRefs :: M.Map ByteString Int
          , renderedNotes :: M.Map ByteString (Layout.Doc Text)
          , referenceMap :: ReferenceMap
+         , afterSpace :: Bool
          }
 
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
@@ -134,6 +136,7 @@ instance ToLayout (Node Block) where
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs) $$ blankline
                RawBlock _ _ -> pure mempty
+         <* modify (\st -> st{ afterSpace = True })
 
 toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
 toDefinitionListItem = undefined -- TODO
@@ -166,9 +169,19 @@ instance ToLayout (Node Inline) where
           SoftBreak -> pure cr
           HardBreak -> pure (literal "\\" <> cr)
           NonBreakingSpace -> pure "\\ "
-          Emph ils -> do -- TODO avoid {} in favorable cases
+          Emph ils -> do
+            startAfterSpace <- gets afterSpace
+            let startBeforeSpace =
+                  case Seq.viewl (unInlines ils) of
+                          Node _ (Str bs) Seq.:< _ ->
+                              isWhite (B8.take 1 bs)
+                          _ -> False
             contents <- toLayout ils
-            pure $ "{_" <> contents <> "_}"
+            endAfterSpace <- gets afterSpace
+            pure $
+              if startAfterSpace && not (startBeforeSpace || endAfterSpace)
+                 then "_" <> contents <> "_"
+                 else "{_" <> contents <> "_}"
           Strong ils -> do -- TODO avoid {} in favorable cases
             contents <- toLayout ils
             pure $ "{*" <> contents <> "*}"
@@ -225,6 +238,19 @@ instance ToLayout (Node Inline) where
             let num' = B8.pack $ show num
             undefined
     <*> toLayout attr
+    <* modify (\st ->
+                 st{ afterSpace =
+                      case il of
+                         Str bs | isWhite (B8.takeEnd 1 bs) -> True
+                         SoftBreak -> True
+                         HardBreak -> True
+                         NonBreakingSpace -> True
+                         _ -> False })
 
 toVerbatimSpan :: ByteString -> Layout.Doc Text
 toVerbatimSpan bs = undefined
+
+isWhite :: ByteString -> Bool
+isWhite " " = True
+isWhite "\t" = True
+isWhite _ = False
