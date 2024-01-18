@@ -83,17 +83,17 @@ instance ToLayout Attr where
   toLayout (Attr kvs)
     | null kvs = pure mempty
     | otherwise = do
-        let ident' = maybe mempty (literal . ("#" <>) . fromUtf8)
+        let ident' = maybe [] ((:[]) . literal . ("#" <>) . fromUtf8)
                         (lookup "id" kvs)
-            classes' = maybe mempty
-                        (hsep . map (("." <>) . literal) . T.words . fromUtf8)
+            classes' = maybe []
+                        (map (("." <>) . literal) . T.words . fromUtf8)
                         (lookup "class" kvs)
-            kvs' = hsep [ literal (fromUtf8 k) <> "=" <>
-                          doubleQuotes
+            kvs' = [ literal (fromUtf8 k) <> "=" <>
+                       doubleQuotes
                             (literal (escapeDjot Attribute (fromUtf8 v)))
-                          | (k,v) <- kvs
-                          , k /= "id" && k /= "class" ]
-        pure $ "{" <> ident' <+> classes' <+> kvs' <> "}"
+                       | (k,v) <- kvs
+                       , k /= "id" && k /= "class" ]
+        pure $ "{" <> hsep (ident' ++ classes' ++ kvs') <> "}"
 
 instance ToLayout (Node Block) where
   toLayout (Node attr bl) =
@@ -159,65 +159,79 @@ toDefinition :: ListSpacing -> (Inlines, Blocks)
 toDefinition listSpacing (term, defn) = undefined
 
 instance ToLayout (Node Inline) where
-  toLayout (Node attr il) =
-    case il of
-      Str bs -> do
-        let chunks =
-              T.groupBy
-               (\c d -> c /= ' ' && d /= ' ')
-               (escapeDjot Normal $ fromUtf8 bs)
-        let toChunk ch = if T.all (== ' ') ch
-                            then space
-                            else literal $ ch
-        pure $ hcat $ map toChunk chunks
-      SoftBreak -> pure cr
-      HardBreak -> pure (literal "\\" <> cr)
-      NonBreakingSpace -> pure "\\ "
-      Emph ils -> undefined
-      Strong ils -> undefined
-      Highlight ils -> do
-        contents <- toLayout ils
-        pure $ "{=" <> contents <> "=}"
-      Insert ils -> do
-        contents <- toLayout ils
-        pure $ "{+" <> contents <> "+}"
-      Delete ils -> do
-        contents <- toLayout ils
-        pure $ "{-" <> contents <> "-}"
-      Superscript ils -> undefined
-      Subscript ils -> undefined
-      Verbatim bs -> pure $ toVerbatimSpan bs
-      Math mt bs -> do
-        let suffix = toVerbatimSpan bs
-        let prefix = case mt of
-                        DisplayMath -> "$$"
-                        InlineMath -> "$"
-        pure $ prefix <> suffix
-      Symbol bs -> undefined
-      Span ils -> undefined
-      Link ils target -> undefined
-      Image ils target -> undefined
-      EmailLink email -> undefined
-      UrlLink url -> undefined
-      RawInline (Format "djot") bs -> pure $ literal (fromUtf8 bs)
-      RawInline _ _ -> pure mempty
-      FootnoteReference label -> do
-        noterefs <- gets noteRefs
-        notemap <- gets noteMap
-        num <- case M.lookup label noterefs of
-                 Just num -> pure num
-                 Nothing -> do
-                   let num = M.size noterefs + 1
-                   modify $ \st -> st{ noteRefs = M.insert label num noterefs }
-                   renderedNotesMap <- gets renderedNotes
-                   case M.lookup label renderedNotesMap of
-                     Just _ -> pure ()
-                     Nothing -> do -- render the note and add to renderedNotes
-                       let num' = B8.pack (show num)
-                       undefined
-                   pure num
-        let num' = B8.pack $ show num
-        undefined
+  toLayout (Node attr il) = (<>)
+    <$> case il of
+          Str bs -> do
+            let chunks =
+                  T.groupBy
+                   (\c d -> c /= ' ' && d /= ' ')
+                   (escapeDjot Normal $ fromUtf8 bs)
+            let toChunk ch = if T.all (== ' ') ch
+                                then space
+                                else literal $ ch
+            pure $ hcat $ map toChunk chunks
+          SoftBreak -> pure cr
+          HardBreak -> pure (literal "\\" <> cr)
+          NonBreakingSpace -> pure "\\ "
+          Emph ils -> do -- TODO avoid {} in favorable cases
+            contents <- toLayout ils
+            pure $ "{_" <> contents <> "_}"
+          Strong ils -> do -- TODO avoid {} in favorable cases
+            contents <- toLayout ils
+            pure $ "{*" <> contents <> "*}"
+          Highlight ils -> do
+            contents <- toLayout ils
+            pure $ "{=" <> contents <> "=}"
+          Insert ils -> do
+            contents <- toLayout ils
+            pure $ "{+" <> contents <> "+}"
+          Delete ils -> do
+            contents <- toLayout ils
+            pure $ "{-" <> contents <> "-}"
+          Superscript ils -> do -- TODO avoid {} in favorable cases
+            contents <- toLayout ils
+            pure $ "{^" <> contents <> "^}"
+          Subscript ils -> do -- TODO avoid {} in favorable cases
+            contents <- toLayout ils
+            pure $ "{~" <> contents <> "~}"
+          Verbatim bs -> pure $ toVerbatimSpan bs
+          Math mt bs -> do
+            let suffix = toVerbatimSpan bs
+            let prefix = case mt of
+                            DisplayMath -> "$$"
+                            InlineMath -> "$"
+            pure $ prefix <> suffix
+          Symbol bs -> pure $ ":" <> literal (fromUtf8 bs) <> ":"
+          Span ils -> do
+            contents <- toLayout ils
+            pure $ "[" <> contents <> "]" <>
+                    case attr of  -- there must be attributes for it to be a span
+                      Attr [] -> "{}"
+                      _ -> mempty
+          Link ils target -> undefined
+          Image ils target -> undefined
+          EmailLink email -> pure $ "<" <> literal (fromUtf8 email) <> ">"
+          UrlLink url -> pure $ "<" <> literal (fromUtf8 url) <> ">"
+          RawInline (Format "djot") bs -> pure $ literal (fromUtf8 bs)
+          RawInline _ _ -> pure mempty
+          FootnoteReference label -> do
+            noterefs <- gets noteRefs
+            notemap <- gets noteMap
+            num <- case M.lookup label noterefs of
+                     Just num -> pure num
+                     Nothing -> do
+                       let num = M.size noterefs + 1
+                       modify $ \st -> st{ noteRefs = M.insert label num noterefs }
+                       renderedNotesMap <- gets renderedNotes
+                       case M.lookup label renderedNotesMap of
+                         Just _ -> pure ()
+                         Nothing -> do -- render the note and add to renderedNotes
+                           let num' = B8.pack (show num)
+                           undefined
+                       pure num
+            let num' = B8.pack $ show num
+            undefined
+    <*> toLayout attr
 
 toVerbatimSpan :: ByteString -> Layout.Doc Text
 toVerbatimSpan bs = undefined
