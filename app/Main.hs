@@ -15,23 +15,14 @@ import Text.Read (readMaybe)
 
 data OutputFormat = Html | Djot
 
-data WrapOpts = Preserve | Wrap Int
-
 data Opts =
       Opts{ format :: OutputFormat
-          , wrap :: WrapOpts
           , files :: [FilePath] }
 
 parseOpts :: [String] -> IO Opts
-parseOpts = foldM go Opts{ format = Html, wrap = Preserve, files = [] }
+parseOpts = foldM go Opts{ format = Html, files = [] }
  where
    go opts "-d" = pure $ opts{ format = Djot }
-   go opts ('-':'w':ds) =
-     case readMaybe ds of
-       Just (n :: Int) -> pure $ opts{ wrap = Wrap n }
-       Nothing -> do
-         hPutStrLn stderr "Can't parse argument of -w as number"
-         exitWith $ ExitFailure 1
    go _opts ('-':xs) = do
      hPutStrLn stderr $ "Unknown option " <> ('-':xs)
      exitWith $ ExitFailure 1
@@ -48,10 +39,7 @@ main = do
     Right doc -> do
       case format opts of
         Html -> hPutBuilder stdout $ renderHtml doc
-        Djot -> TIO.putStr $ render (case wrap opts of
-                                       Preserve -> Just 0
-                                       Wrap n -> Just n)
-                                    (renderDjot doc)
+        Djot -> TIO.putStr $ render Nothing (renderDjot doc)
       exitWith ExitSuccess
     Left e -> do
       hPutStrLn stderr e
