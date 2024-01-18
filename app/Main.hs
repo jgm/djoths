@@ -22,7 +22,8 @@ data Opts =
 parseOpts :: [String] -> IO Opts
 parseOpts = foldM go Opts{ format = Html, files = [] }
  where
-   go opts "-d" = pure $ opts{ format = Djot }
+   go opts "--djot" = pure $ opts{ format = Djot }
+   go opts "--html" = pure $ opts{ format = Html }
    go _opts ('-':xs) = do
      hPutStrLn stderr $ "Unknown option " <> ('-':xs)
      exitWith $ ExitFailure 1
