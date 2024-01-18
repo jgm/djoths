@@ -998,8 +998,7 @@ pLine = byteStringOf $
 
 {-# INLINE pBlankLine #-}
 pBlankLine :: P s ()
-pBlankLine = try $
-  skipMany spaceOrTab *> (endline <|> eof)
+pBlankLine = skipMany spaceOrTab *> (endline <|> eof)
 
 {-# INLINE addAttr #-}
 addAttr :: Attr -> Blocks -> Blocks
