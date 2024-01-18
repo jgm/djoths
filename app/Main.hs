@@ -11,7 +11,6 @@ import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
 import Text.DocLayout (render)
 import qualified Data.Text.IO as TIO
-import Text.Read (readMaybe)
 
 data OutputFormat = Html | Djot
 
