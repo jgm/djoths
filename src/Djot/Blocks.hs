@@ -107,7 +107,7 @@ listItemSpec =
   BlockSpec
   { blockName = "ListItem"
   , blockType = ListItem
-  , blockStart = try $ do
+  , blockStart = do
       ind <- getIndent
       ltypes <- pListStart
       skipMany spaceOrTab
@@ -157,7 +157,7 @@ pBulletListStart = do
            pure [Bullet bulletchar])
 
 pDefinitionListStart :: P s [ListType]
-pDefinitionListStart = do
+pDefinitionListStart = try $ do
   asciiChar' ':'
   lookahead ws
   pure [Definition]
