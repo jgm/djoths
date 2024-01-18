@@ -18,6 +18,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import Data.List (sort)
+import Control.Monad
 import Control.Monad.State
 import qualified Data.Foldable as F
 import Text.DocLayout hiding (Doc)
@@ -113,7 +114,13 @@ instance ToLayout (Node Block) where
                     Tight -> vcat
                     Loose -> vsep) <$>
                  mapM (fmap (hang 2 "-") . toLayout) items
-               OrderedList listAttr listSpacing items -> undefined
+               OrderedList listAttr listSpacing items ->
+                 (case listSpacing of
+                    Tight -> vcat
+                    Loose -> vsep) <$>
+                 zipWithM (toOrderedListItem listAttr)
+                          [(orderedListStart listAttr)..]
+                          items
                DefinitionList listSpacing defs -> undefined
                TaskList listSpacing items -> undefined
                Div bls -> undefined
@@ -123,6 +130,10 @@ instance ToLayout (Node Block) where
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs) $$ blankline
                RawBlock _ _ -> pure mempty
+
+toOrderedListItem :: OrderedListAttributes -> Int -> Blocks
+                  -> State BState (Layout.Doc Text)
+toOrderedListItem listAttr num bs = undefined -- TODO
 
 toRow :: [Cell] -> State BState (Layout.Doc Text)
 toRow cells = undefined
