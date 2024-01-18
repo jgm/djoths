@@ -8,6 +8,7 @@ module Djot.Djot
 where
 
 import Djot.AST
+import Djot.Options (RenderOptions(..))
 import Data.Tuple (swap)
 import Djot.FlatParse (strToUtf8)
 import Data.ByteString (ByteString)
@@ -26,15 +27,17 @@ import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 
-renderDjot :: Doc -> Layout.Doc Text
-renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
+renderDjot :: RenderOptions -> Doc -> Layout.Doc Text
+renderDjot opts doc = evalState
+                           (do body <- toLayout (docBlocks doc)
                                refs <- toReferences
                                notes <- toNotes
                                pure $ body $$ refs $$ notes)
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty
                                , renderedNotes = mempty
-                               , referenceMap = docReferences doc }
+                               , referenceMap = docReferences doc
+                               , options = opts }
 
 toReferences :: State BState (Layout.Doc Text)
 toReferences = do
@@ -64,6 +67,7 @@ data BState =
          , noteRefs :: M.Map ByteString Int
          , renderedNotes :: M.Map ByteString (Layout.Doc Text)
          , referenceMap :: ReferenceMap
+         , options :: RenderOptions
          }
 
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
@@ -104,12 +108,16 @@ instance ToLayout (Node Block) where
                  pure $ literal (T.replicate lev "#") <+> contents $$ blankline
                Section bls -> ($$ blankline) <$> toLayout bls
                ThematicBreak -> pure $ literal "* * * *" $$ blankline
-               BulletList listSpacing items -> undefined
+               BulletList listSpacing items ->
+                 (case listSpacing of
+                    Tight -> vcat
+                    Loose -> vsep) <$>
+                 mapM (fmap (hang 2 "-") . toLayout) items
                OrderedList listAttr listSpacing items -> undefined
                DefinitionList listSpacing defs -> undefined
                TaskList listSpacing items -> undefined
                Div bls -> undefined
-               BlockQuote bls -> undefined
+               BlockQuote bls -> prefixed "> " <$> toLayout bls
                CodeBlock lang bs -> undefined
                Table mbCaption rows -> undefined
                RawBlock (Format "djot") bs ->
@@ -155,7 +163,11 @@ instance ToLayout (Node Inline) where
                             then space
                             else literal $ ch
         pure $ hcat $ map toChunk chunks
-      SoftBreak -> pure cr
+      SoftBreak -> do
+        opts <- gets options
+        if optPreserveSoftBreaks opts
+           then pure cr
+           else pure space
       HardBreak -> pure (literal "\\" <> cr)
       NonBreakingSpace -> pure "\\ "
       Emph ils -> undefined
