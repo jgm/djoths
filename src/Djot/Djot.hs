@@ -94,11 +94,6 @@ instance ToLayout Attr where
                           , k /= "id" && k /= "class" ]
         pure $ "{" <> ident' <+> classes' <+> kvs' <> "}"
 
-{-# INLINE attrToLayout #-}
-attrToLayout :: Attr -> Layout.Doc Text
-attrToLayout (Attr pairs) = undefined
-
-
 instance ToLayout (Node Block) where
   toLayout (Node attr bl) =
     ($$) <$> toLayout attr
