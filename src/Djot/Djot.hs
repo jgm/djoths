@@ -10,7 +10,7 @@ where
 import Djot.AST
 import Data.Tuple (swap)
 import Data.Char (ord)
-import Djot.FlatParse (strToUtf8)
+import Djot.FlatParse (strToUtf8, utf8ToStr)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
@@ -83,8 +83,31 @@ fromUtf8 = decodeUtf8With lenientDecode
 data EscapeContext = Normal | Attribute
 
 {-# INLINE escapeDjot #-}
-escapeDjot :: EscapeContext -> Text -> Text
-escapeDjot context t = t -- TODO
+escapeDjot :: EscapeContext -> ByteString -> Text
+escapeDjot context bs
+  | B8.any escapable bs = T.pack. go . utf8ToStr $ bs
+  | otherwise = fromUtf8 bs
+ where
+  escapable c = c == '[' || c == ']' || c == '<' || c == '>' ||
+                c == '$' || c == '!' || c == '{' || c == '}' || c == ':' ||
+                c == '-' || c == '^' || c == '~' ||
+                c == '*' || c == '_' || c == '\''|| c == '"' || c == '.' ||
+                c == '|' || c == '`' || c == '\\'
+  go [] = []
+  go ('$':c:cs)
+    | c == '`' = '\\' : '$' : c : go cs
+    | otherwise = '$' : go (c : cs)
+  go ('-':cs) =
+    case cs of
+      '-':ds -> '\\' : '-' : go cs
+      _ -> '-' : go cs
+  go ('.':cs) =
+    case cs of
+      '.':'.':ds -> '\\' : '.' : go cs
+      _ -> '.' : go cs
+  go (c:cs)
+    | escapable c = '\\' : c : go cs
+    | otherwise = c : go cs
 
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
 {-# SPECIALIZE toLayout :: Inlines -> State BState (Layout.Doc Text) #-}
@@ -109,7 +132,7 @@ instance ToLayout Attr where
                         (lookup "class" kvs)
             kvs' = [ literal (fromUtf8 k) <> "=" <>
                        doubleQuotes
-                            (literal (escapeDjot Attribute (fromUtf8 v)))
+                            (literal (escapeDjot Attribute v))
                        | (k,v) <- kvs
                        , k /= "id" && k /= "class" ]
         pure $ "{" <> hsep (ident' ++ classes' ++ kvs') <> "}"
@@ -202,7 +225,7 @@ instance ToLayout (Node Inline) where
             let chunks =
                   T.groupBy
                    (\c d -> c /= ' ' && d /= ' ')
-                   (escapeDjot Normal $ fromUtf8 bs)
+                   (escapeDjot Normal bs)
             let toChunk ch = if T.all (== ' ') ch
                                 then space
                                 else literal $ ch
@@ -256,7 +279,14 @@ instance ToLayout (Node Inline) where
                          _ -> False })
 
 toVerbatimSpan :: ByteString -> Layout.Doc Text
-toVerbatimSpan bs = undefined
+toVerbatimSpan bs =
+  ticks <> literal (fromUtf8 bs) <> ticks
+ where
+  ticks = literal $ T.replicate (maxticks + 1) "`"
+  maxticks = fst $ B8.foldl' scanTicks (0,0) bs
+  scanTicks (longest, theseticks) '`' =
+     (max (theseticks + 1) longest, theseticks + 1)
+  scanTicks (longest, theseticks) _ = (longest, 0)
 
 isWhite :: ByteString -> Bool
 isWhite " " = True
