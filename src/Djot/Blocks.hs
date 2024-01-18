@@ -592,7 +592,7 @@ headingSpec =
                            skipMany spaceOrTab))
             <|> (False <$ do
                     lookahead (asciiChar' '#' <|> endline <|> eof))
-            <|> (True <$ skipMany spaceOrTab)
+            <|> pure True
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = \container -> do
