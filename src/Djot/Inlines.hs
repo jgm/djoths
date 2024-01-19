@@ -82,9 +82,17 @@ pInline = pInline' >>= pOptionalAttributes
 pOptionalAttributes :: Inlines -> P Inlines
 pOptionalAttributes (Inlines ils) =
  (lookahead (asciiChar' '{') *> do
-  attr <- mconcat <$> many pAttributes
+  attr <- mconcat <$> some pAttributes
   case Seq.viewr ils of
     Seq.EmptyR -> pure mempty
+    ils' Seq.:> Node attr' (Str bs) ->
+      -- attach attribute to last word
+      let (front, lastword) = B8.breakEnd isWs bs
+      in if B.null lastword
+            then pure (Inlines ils)
+            else pure $ Inlines (ils' Seq.|>
+                            Node attr' (Str front) Seq.|>
+                            Node attr (Str lastword))
     ils' Seq.:> Node attr' il ->
       pure $ Inlines (ils' Seq.|> Node (attr' <> attr) il))
   <|> pure (Inlines ils)
