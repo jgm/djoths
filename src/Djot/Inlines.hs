@@ -61,7 +61,9 @@ removeFinalWs (Inlines ils) = Inlines $
   case Seq.viewr ils of
     rest Seq.:> Node attr (Str bs)
       | B8.takeEnd 1 bs == " "
-        -> rest Seq.|> Node attr (Str (B8.dropWhileEnd (==' ') bs))
+        -> case B8.dropWhileEnd (== ' ') bs of
+             "" -> rest
+             bs' -> rest Seq.|> Node attr (Str bs')
     _ -> ils
 
 data InlineParseMode =
