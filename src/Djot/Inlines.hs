@@ -82,16 +82,16 @@ pInlines = skipMany ws *> (consolidate . mconcat <$> many pInline)
 -- so that only the "x" gets following attributes.
 -- e.g.  *x{.foo}
 consolidate :: Inlines -> Inlines
-consolidate (Inlines ils') = Inlines (foldl' go mempty ils')
+consolidate (Inlines ils') = Inlines (foldr go mempty ils')
  where
-   go ils il@(Node attr (Str s)) =
-     case Seq.viewr ils of
-              start Seq.:> Node (Attr []) (Str s')
-                | not (B8.null s')
-                , not (isWs (B8.last s'))
-                -> start Seq.|> Node attr (Str (s' <> s))
-              _ -> ils Seq.|> il
-   go ils il = ils Seq.|> il
+   go il@(Node (Attr []) (Str s)) ils
+      | not (B8.null s)
+      , not (isWs (B8.last s))
+      = case Seq.viewl ils of
+              Node attr (Str s') Seq.:< end
+                -> Node attr (Str (s <> s')) Seq.<| end
+              _ -> il Seq.<| ils
+   go il ils = il Seq.<| ils
 
 pInline :: P Inlines
 pInline = pInline' >>= pOptionalAttributes
