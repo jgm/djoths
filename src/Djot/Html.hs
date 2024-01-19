@@ -232,7 +232,9 @@ toDefinition listSpacing (term, defn) = (<>) <$>
 instance ToBuilder (Node Inline) where
   toBuilder (Node attr il) =
     case il of
-      Str bs -> pure $ escapeHtml bs
+      Str bs -> case attr of
+                   Attr [] -> pure $ escapeHtml bs
+                   _ -> pure $ inTags "span" attr $ escapeHtml bs
       SoftBreak -> pure $ word8 10
       HardBreak -> pure $ singleTag "br" attr <> "\n"
       NonBreakingSpace -> pure $ byteString "&nbsp;"
