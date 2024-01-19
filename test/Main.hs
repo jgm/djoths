@@ -10,35 +10,14 @@ import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
 import Djot ( ParseOptions(..), parseDoc, renderHtml, Doc )
-import System.FilePath ((</>))
+import System.FilePath ((</>), takeExtension)
+import System.Directory (getDirectoryContents)
 
 main :: IO ()
 main = do
-  tests <- mapM (getSpecTestTree . ("test" </>))
-            [ "block_quote.test"
-            , "code_blocks.test"
-            , "definition_lists.test"
-            , "emphasis.test"
-            , "escapes.test"
-            , "fenced_divs.test"
-            -- , "filters.test"
-            , "footnotes.test"
-            , "headings.test"
-            , "insert_delete_mark.test"
-            , "links_and_images.test"
-            , "lists.test"
-            , "math.test"
-            , "para.test"
-            , "raw.test"
-            , "regression.test"
-            , "smart.test"
-            , "spans.test"
-            , "super_subscript.test"
-            , "symb.test"
-            , "tables.test"
-            , "task_lists.test"
-            , "thematic_breaks.test"
-            , "verbatim.test" ]
+  specTests <- filter ((== ".test") . takeExtension) <$>
+                  getDirectoryContents "test"
+  tests <- mapM (getSpecTestTree . ("test" </>)) specTests
   defaultMain $ testGroup "Tests" tests
 
 getSpecTestTree :: FilePath
