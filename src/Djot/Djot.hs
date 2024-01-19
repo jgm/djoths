@@ -87,11 +87,11 @@ toNote label = do
 fromUtf8 :: ByteString -> Text
 fromUtf8 = decodeUtf8With lenientDecode
 
-data EscapeContext = Normal | Attribute
+data EscapeContext = Normal
 
 {-# INLINE escapeDjot #-}
 escapeDjot :: EscapeContext -> ByteString -> Text
-escapeDjot context bs
+escapeDjot Normal bs
   | B8.any escapable bs = T.pack. go . utf8ToStr $ bs
   | otherwise = fromUtf8 bs
  where
@@ -138,8 +138,7 @@ instance ToLayout Attr where
                         (map (("." <>) . literal) . T.words . fromUtf8)
                         (lookup "class" kvs)
             kvs' = [ literal (fromUtf8 k) <> "=" <>
-                       doubleQuotes
-                            (literal (escapeDjot Attribute v))
+                       doubleQuotes (literal (escapeDjot Normal v))
                        | (k,v) <- kvs
                        , k /= "id" && k /= "class" ]
         pure $ "{" <> hsep (ident' ++ classes' ++ kvs') <> "}"
