@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
@@ -17,7 +18,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
-import Data.List (sort)
+import Data.List (sort, intersperse, transpose)
 import Control.Monad
 import Control.Monad.State
 import qualified Data.Foldable as F
@@ -140,13 +141,13 @@ instance ToLayout Attr where
 instance ToLayout (Node Block) where
   toLayout (Node attr bl) =
     ($$) <$> toLayout attr
-         <*> case bl of
-               Para ils -> ($$ blankline) <$> toLayout ils
+         <*> (($$ blankline) <$> case bl of
+               Para ils -> toLayout ils
                Heading lev ils -> do
                  contents <- toLayout ils
-                 pure $ literal (T.replicate lev "#") <+> contents $$ blankline
+                 pure $ literal (T.replicate lev "#") <+> contents
                Section bls -> ($$ blankline) <$> toLayout bls
-               ThematicBreak -> pure $ literal "* * * *" $$ blankline
+               ThematicBreak -> pure $ literal "* * * *"
                BulletList listSpacing items ->
                  (case listSpacing of
                     Tight -> vcat . map chomp
@@ -176,7 +177,8 @@ instance ToLayout (Node Block) where
                  modify $ \st -> st{ divNestingLevel = level }
                  let colons = literal (T.replicate (level + 3) ":")
                  pure $ colons $$ contents $$ colons
-               BlockQuote bls -> prefixed "> " <$> toLayout bls
+               BlockQuote bls ->
+                 prefixed "> " <$> toLayout bls
                CodeBlock lang bs -> do
                  let longesttickline = maximum
                                    $ map (B8.length . B8.takeWhile (=='`'))
@@ -186,21 +188,51 @@ instance ToLayout (Node Block) where
                  let lang' = if lang == mempty
                                 then mempty
                                 else literal (fromUtf8 lang)
-                 pure $ ticks <+> lang' $$ literal (fromUtf8 bs) $$ ticks
+                 pure $ ticks <+> lang'
+                      $$ literal (fromUtf8 bs)
+                      $$ ticks
                Table mbCaption rows -> do
                  caption <- case mbCaption of
                                Nothing -> pure mempty
                                Just (Caption bls)
                                        -> hang 2 "^" <$> toLayout bls
-                 body <- vcat <$> mapM toTableRow rows
+                 body <- toTable rows
                  pure $ body $+$ caption
                RawBlock (Format "djot") bs ->
-                 pure $ literal (fromUtf8 bs) $$ blankline
-               RawBlock _ _ -> pure mempty
+                 pure $ literal (fromUtf8 bs)
+               RawBlock _ _ -> pure mempty)
          <* modify (\st -> st{ afterSpace = True })
 
-toTableRow :: [Cell] -> State BState (Layout.Doc Text)
-toTableRow cells = undefined -- TODO
+toTable :: [[Cell]] -> State BState (Layout.Doc Text)
+toTable rows = do
+  let getCellContents (Cell hd al ils) = ((hd, al),) <$> toLayout ils
+  rowContents <- mapM (mapM getCellContents) rows
+  let colwidths = map (maximum . map (offset . snd))
+                      (transpose rowContents)
+  let getAlign (Cell _ al _) = al
+  let toCell width ((_,align), d) =
+        (case align of
+          AlignLeft -> lblock
+          AlignRight -> rblock
+          AlignCenter -> cblock
+          AlignDefault -> lblock) width d
+  let mkRow sep ds = sep $ "|" : intersperse "|" ds ++ ["|"]
+  let toUnderline width ((_,al),_) = literal $
+        case al of
+           AlignLeft -> ":" <> T.replicate (width + 1) "-"
+           AlignRight -> T.replicate (width + 1) "-" <> ":"
+           AlignCenter -> ":" <> T.replicate width "-" <> ":"
+           AlignDefault -> T.replicate width "-"
+  let toRow cells =
+         let isHeader = case cells of
+                          ((HeadCell,_),_) : _ -> True
+                          _ -> False
+         in mkRow hsep (zipWith toCell colwidths cells)
+            $$
+            if isHeader
+               then mkRow hcat (zipWith toUnderline colwidths cells)
+               else mempty
+  pure $ vcat $ map toRow rowContents
 
 toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
 toDefinitionListItem (term, def) = do
@@ -209,17 +241,16 @@ toDefinitionListItem (term, def) = do
   pure $ hang 2 ":" $ term' $+$ def'
 
 toTaskListItem :: (TaskStatus, Blocks) -> State BState (Layout.Doc Text)
-toTaskListItem = undefined -- TODO
+toTaskListItem (status, bls) = do
+  contents <- toLayout bls
+  let marker = case status of
+                  Incomplete -> "- [ ]" <> space
+                  Complete -> "- [X]" <> space
+  pure $ hang 2 marker contents
 
 toOrderedListItem :: OrderedListAttributes -> Int -> Blocks
                   -> State BState (Layout.Doc Text)
 toOrderedListItem listAttr num bs = undefined -- TODO
-
-toRow :: [Cell] -> State BState (Layout.Doc Text)
-toRow cells = undefined
-
-toCell :: Cell -> State BState (Layout.Doc Text)
-toCell (Cell cellType align ils) = undefined
 
 instance ToLayout (Node Inline) where
   toLayout (Node attr il) = (<>)
@@ -301,7 +332,7 @@ toVerbatimSpan bs =
   maxticks = fst $ B8.foldl' scanTicks (0,0) bs
   scanTicks (longest, theseticks) '`' =
      (max (theseticks + 1) longest, theseticks + 1)
-  scanTicks (longest, theseticks) _ = (longest, 0)
+  scanTicks (longest, _) _ = (longest, 0)
 
 isWhite :: ByteString -> Bool
 isWhite " " = True
