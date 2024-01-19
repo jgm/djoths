@@ -14,7 +14,7 @@ module Djot.AST
   NoteMap(..),
   insertNote,
   lookupNote,
-  ReferenceMap,
+  ReferenceMap(..),
   insertReference,
   lookupReference,
   normalizeLabel,

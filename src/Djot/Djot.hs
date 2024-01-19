@@ -31,7 +31,7 @@ import qualified Data.IntMap.Strict as IntMap
 
 renderDjot :: Doc -> Layout.Doc Text
 renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
-                               refs <- toReferences
+                               refs <- gets referenceMap >>= toReferences
                                notes <- toNotes
                                pure $ body $$ refs $$ notes)
                          BState{ noteMap = docFootnotes doc
@@ -57,11 +57,18 @@ data BState =
          , nestings :: IntMap.IntMap Int
          }
 
-toReferences :: State BState (Layout.Doc Text)
-toReferences = do
-  st <- get
-  let refs = referenceMap st
-  pure mempty -- TODO implement this
+toReferences :: ReferenceMap -> State BState (Layout.Doc Text)
+toReferences (ReferenceMap refs) =
+  vcat <$> mapM toReference (M.toList refs)
+
+toReference :: (ByteString, (ByteString, Attr)) -> State BState (Layout.Doc Text)
+toReference (label, (url, attr)) = do
+  attr' <- toLayout attr
+  let ref = "[" <> literal (fromUtf8 label) <> "]:" <+>
+                 literal (fromUtf8 url)
+  pure $ attr' $$ ref
+
+  -- ReferenceMap { unReferenceMap :: M.Map ByteString (ByteString, Attr) }
 
 toNotes :: State BState (Layout.Doc Text)
 toNotes = do
