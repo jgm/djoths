@@ -10,10 +10,9 @@ where
 
 import Djot.AST
 import Data.Tuple (swap)
-import Data.Char (ord)
-import Djot.FlatParse (strToUtf8, utf8ToStr)
+import Data.Char (ord, chr)
+import Djot.FlatParse (utf8ToStr)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
@@ -100,11 +99,11 @@ escapeDjot context bs
     | otherwise = '$' : go (c : cs)
   go ('-':cs) =
     case cs of
-      '-':ds -> '\\' : '-' : go cs
+      '-':_ -> '\\' : '-' : go cs
       _ -> '-' : go cs
   go ('.':cs) =
     case cs of
-      '.':'.':ds -> '\\' : '.' : go cs
+      '.':'.':_ -> '\\' : '.' : go cs
       _ -> '.' : go cs
   go (c:cs)
     | escapable c = '\\' : c : go cs
@@ -209,7 +208,6 @@ toTable rows = do
   rowContents <- mapM (mapM getCellContents) rows
   let colwidths = map (maximum . map (offset . snd))
                       (transpose rowContents)
-  let getAlign (Cell _ al _) = al
   let toCell width ((_,align), d) =
         (case align of
           AlignLeft -> lblock
@@ -250,7 +248,48 @@ toTaskListItem (status, bls) = do
 
 toOrderedListItem :: OrderedListAttributes -> Int -> Blocks
                   -> State BState (Layout.Doc Text)
-toOrderedListItem listAttr num bs = undefined -- TODO
+toOrderedListItem listAttr num bs = do
+  contents <- toLayout bs
+  let marker = formatOrderedListMarker listAttr num
+  pure $ hang (offset marker + 1) marker contents
+
+formatOrderedListMarker :: OrderedListAttributes -> Int -> Layout.Doc Text
+formatOrderedListMarker listAttr =
+  addDelims (orderedListDelim listAttr) .
+    formatNumber (orderedListStyle listAttr)
+
+addDelims :: OrderedListDelim -> Layout.Doc Text -> Layout.Doc Text
+addDelims RightPeriod d = d <> "."
+addDelims RightParen d = d <> ")"
+addDelims LeftRightParen d = "(" <> d <> ")"
+
+formatNumber :: OrderedListStyle -> Int -> Layout.Doc Text
+formatNumber Decimal n = literal (T.pack (show n))
+formatNumber LetterUpper n = literal (T.singleton (chr (ord 'A' + n - 1)))
+formatNumber LetterLower n = literal (T.singleton (chr (ord 'a' + n - 1)))
+formatNumber RomanUpper n = literal $ toRomanNumeral n
+formatNumber RomanLower n = literal $ T.toLower (toRomanNumeral n)
+
+-- | Convert number < 4000 to uppercase roman numeral. (from pandoc)
+toRomanNumeral :: Int -> T.Text
+toRomanNumeral x
+  | x >= 4000 || x < 0 = "?"
+  | x >= 1000 = "M" <> toRomanNumeral (x - 1000)
+  | x >= 900  = "CM" <> toRomanNumeral (x - 900)
+  | x >= 500  = "D" <> toRomanNumeral (x - 500)
+  | x >= 400  = "CD" <> toRomanNumeral (x - 400)
+  | x >= 100  = "C" <> toRomanNumeral (x - 100)
+  | x >= 90   = "XC" <> toRomanNumeral (x - 90)
+  | x >= 50   = "L"  <> toRomanNumeral (x - 50)
+  | x >= 40   = "XL" <> toRomanNumeral (x - 40)
+  | x >= 10   = "X" <> toRomanNumeral (x - 10)
+  | x == 9    = "IX"
+  | x >= 5    = "V" <> toRomanNumeral (x - 5)
+  | x == 4    = "IV"
+  | x >= 1    = "I" <> toRomanNumeral (x - 1)
+  | otherwise = ""
+
+
 
 instance ToLayout (Node Inline) where
   toLayout (Node attr il) = (<>)
