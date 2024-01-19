@@ -12,7 +12,7 @@ import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
 import Text.DocLayout (render)
 import qualified Data.Text.IO as TIO
 
-data OutputFormat = Html | Djot
+data OutputFormat = Html | Djot | Ast
 
 data Opts =
       Opts{ format :: OutputFormat
@@ -22,6 +22,7 @@ parseOpts :: [String] -> IO Opts
 parseOpts = foldM go Opts{ format = Html, files = [] }
  where
    go opts "--djot" = pure $ opts{ format = Djot }
+   go opts "--ast" = pure $ opts{ format = Ast }
    go opts "--html" = pure $ opts{ format = Html }
    go _opts ('-':xs) = do
      hPutStrLn stderr $ "Unknown option " <> ('-':xs)
@@ -40,6 +41,7 @@ main = do
       case format opts of
         Html -> hPutBuilder stdout $ renderHtml doc
         Djot -> TIO.putStr $ render Nothing (renderDjot doc)
+        Ast -> print doc
       exitWith ExitSuccess
     Left e -> do
       hPutStrLn stderr e
