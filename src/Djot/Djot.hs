@@ -172,9 +172,9 @@ instance ToLayout (Node Block) where
                  mapM toTaskListItem items
                Div bls -> do
                  level <- gets divNestingLevel
-                 modify $ \st -> st{ divNestingLevel = level + 1 }
+                 modify' $ \st -> st{ divNestingLevel = level + 1 }
                  contents <- toLayout bls
-                 modify $ \st -> st{ divNestingLevel = level }
+                 modify' $ \st -> st{ divNestingLevel = level }
                  let colons = literal (T.replicate (level + 3) ":")
                  pure $ colons $$ contents $$ colons
                BlockQuote bls ->
@@ -201,7 +201,7 @@ instance ToLayout (Node Block) where
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs)
                RawBlock _ _ -> pure mempty)
-         <* modify (\st -> st{ afterSpace = True })
+         <* modify' (\st -> st{ afterSpace = True })
 
 toTable :: [[Cell]] -> State BState (Layout.Doc Text)
 toTable rows = do
@@ -303,13 +303,13 @@ instance ToLayout (Node Inline) where
           FootnoteReference label -> do
             order <- gets noteOrder
             case M.lookup label order of
-              Nothing -> modify $ \st ->
+              Nothing -> modify' $ \st ->
                             st{ noteOrder =
                                   M.insert label (M.size order + 1) order }
               Just _ -> pure ()
             pure $ toNoteRef label
    <*> toLayout attr
-    <* modify (\st ->
+    <* modify' (\st ->
                  st{ afterSpace =
                       case il of
                          Str bs | isWhite (B8.takeEnd 1 bs) -> True
@@ -347,9 +347,9 @@ surround c ils = do
                 Node _ (Str bs) Seq.:< _ ->
                     isWhite (B8.take 1 bs)
                 _ -> False
-  modify $ \st -> st{ nestings = IntMap.adjust (+ 1) (ord c) (nestings st)}
+  modify' $ \st -> st{ nestings = IntMap.adjust (+ 1) (ord c) (nestings st)}
   contents <- toLayout ils
-  modify $ \st -> st{ nestings = IntMap.adjust (\x -> x - 1)
+  modify' $ \st -> st{ nestings = IntMap.adjust (\x -> x - 1)
                         (ord c) (nestings st)}
   endAfterSpace <- gets afterSpace
   nestingLevel <- gets (fromMaybe 1 . IntMap.lookup (ord c) . nestings)
