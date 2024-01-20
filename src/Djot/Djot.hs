@@ -157,7 +157,7 @@ instance ToLayout (Node Block) where
                  (case listSpacing of
                     Tight -> vcat . map chomp
                     Loose -> vsep) <$>
-                 mapM (fmap (hang 2 "-") . toLayout) items
+                 mapM (fmap (hang 2 ("-" <> space)) . toLayout) items
                OrderedList listAttr listSpacing items ->
                  (case listSpacing of
                     Tight -> vcat . map chomp
