@@ -138,6 +138,7 @@ pInline' = do
              <|> pSubscript
              <|> pDoubleQuote
              <|> pSingleQuote
+             <|> (mempty <$ pAttributes)
           '`' -> pVerbatim
           ':' -> pSymbol
           '$' -> pMath
@@ -146,7 +147,8 @@ pInline' = do
           '-' -> pHyphens
           '.' -> pEllipses
           '\n' -> pSoftBreak
-          _ -> mzero) <|> pSpecial
+          _ -> mzero)
+        <|> pSpecial
        ) <|> pWords
 
 pSpecial :: P Inlines

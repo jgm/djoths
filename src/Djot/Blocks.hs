@@ -710,9 +710,14 @@ attrSpec =
   , blockContainsLines = True
   , blockClose = \container ->
       case runParser pAttributes () 0 (fold $ containerText container) of
-        OK attr _ _ -> do
-          modifyP $ \st -> st{ psAttributes = psAttributes st <> attr }
-          pure container
+        OK attr _ unconsumed
+          | B8.all isWs unconsumed -> do
+             modifyP $ \st -> st{ psAttributes = psAttributes st <> attr }
+             pure container
+          | otherwise -> do
+             ils <- parseTextLines container
+             pure $ container{ containerSpec = paraSpec
+                             , containerInlines = ils }
         Err e -> err e
         Fail -> do  -- could not parse lines as attribute, treat as Para
           ils <- parseTextLines container
