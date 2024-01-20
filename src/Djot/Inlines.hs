@@ -78,6 +78,7 @@ type P = Parser InlineParseMode String
 pInlines :: P Inlines
 pInlines = skipMany ws *> (consolidate . mconcat <$> many pInline)
 
+{-# INLINE consolidate #-}
 -- This is need so that we don't have Str "*", Str "x"
 -- so that only the "x" gets following attributes.
 -- e.g.  *x{.foo}
