@@ -14,7 +14,7 @@ import Data.ByteString (ByteString)
 --               key1 = "val1", key2 = "val2" }
 --  syntax:
 --
---  attributes <- '{' whitespace* attribute (whitespace attribute)* whitespace* '}'
+--  attributes <- '{' ignorable* attribute (ignorable attribute)* ignorable* '}'
 --  attribute <- identifier | class | keyval
 --  identifier <- '#' name
 --  class <- '.' name
@@ -24,14 +24,16 @@ import Data.ByteString (ByteString)
 --  val <- bareval | quotedval
 --  bareval <- (ASCII_ALPHANUM | ':' | '_' | '-')+
 --  quotedval <- '"' ([^"] | '\"') '"'
+--  ignorable <- whitespace | comment
+--  comment <- '%' [^%}]* '%'
 
 pAttributes :: ParserT m s String Attr
 pAttributes = try $ do
   asciiChar' '{'
-  skipMany ws
+  skipMany pIgnorable
   x <- pAttribute
-  xs <- many (skipSome ws *> pAttribute)
-  skipMany ws
+  xs <- many (skipSome pIgnorable *> pAttribute)
+  skipMany pIgnorable
   asciiChar' '}'
   pure $ mconcat (x:xs)
 
@@ -83,3 +85,11 @@ pQuotedVal = do
 pBareVal :: ParserT m s String ByteString
 pBareVal = pKey
 
+pComment :: ParserT m s String ()
+pComment = do
+  asciiChar' '%'
+  skipMany $ satisfy (\c -> c /= '}' && c /= '%')
+  asciiChar' '%' <|> lookahead (asciiChar' '}')
+
+pIgnorable :: ParserT m s String ()
+pIgnorable = ws <|> pComment
