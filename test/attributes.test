@@ -296,7 +296,7 @@ text{a=x
 ```
 
 
-``` a
+```
 {
  attr="long
  value
@@ -306,19 +306,17 @@ text{a=x
  }
 > a
 .
-doc
-  block_quote attr="long value spanning multiple lines"
-    para
-      str text="a"
+<blockquote attr="long value spanning multiple lines">
+<p>a</p>
+</blockquote>
 ```
 
-``` a
+```
 > {key="bar
 >    a\$bim"}
 > ou
 .
-doc
-  block_quote
-    para key="bar a$bim"
-      str text="ou"
+<blockquote>
+<p key="bar a$bim">ou</p>
+</blockquote>
 ```
