@@ -265,13 +265,13 @@ hello
 <p>hello</p>
 ```
 
-```
-{a=x
-hello
-.
-<p>{a=x
-hello</p>
-```
+skip ```
+skip {a=x
+skip hello
+skip .
+skip <p>{a=x
+skip hello</p>
+skip ```
 
 ```
 text{a=x
@@ -281,13 +281,13 @@ text{a=x
 # non-heading</p>
 ```
 
-```
-{a=x
-# non-heading
-.
-<p>{a=x
-# non-heading</p>
-```
+skip ```
+skip {a=x
+skip # non-heading
+skip .
+skip <p>{a=x
+skip # non-heading</p>
+skip ```
 
 ```
 {a=" inline text

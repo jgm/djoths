@@ -5,13 +5,15 @@
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Data.Text.Lazy as TL
-import Data.Text.Lazy.Encoding (decodeUtf8With)
+import Data.Text.Lazy.Encoding (decodeUtf8With, encodeUtf8)
 import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
-import Djot ( ParseOptions(..), parseDoc, renderHtml, Doc )
+import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
+import Djot.AST
 import System.FilePath ((</>), takeExtension)
 import System.Directory (getDirectoryContents)
+import Text.DocLayout (render)
 
 main :: IO ()
 main = do
@@ -26,7 +28,12 @@ getSpecTestTree fp = do
   tests <- getSpecTests fp
   let parser = parseDoc ParseOptions{ optSourcePositions = False } .
                  BL.toStrict
-  return $ testGroup fp $ map (toSpecTest parser) tests
+  return $ testGroup fp
+             [ testGroup "djot -> html"
+                 (map (toSpecTest parser) tests)
+             , testGroup "native -> djot -> native"
+                 (map (toRoundTripTest parser) tests)
+             ]
 
 toSpecTest :: (BL.ByteString -> Either String Doc)
            -> SpecTest -> TestTree
@@ -36,6 +43,24 @@ toSpecTest parser st =
           expected = fromUtf8 $ html st
           actual = either mempty (fromUtf8 . toLazyByteString . renderHtml)
                      . parser $ djot st
+
+toRoundTripTest :: (BL.ByteString -> Either String Doc)
+                -> SpecTest -> TestTree
+toRoundTripTest parser st =
+  testCase name ((actual == expected) @? rtlog)
+    where name = "lines " ++ show (start_line st) ++ "-" ++ show (end_line st)
+          native = either (\_ -> Doc mempty mempty mempty) id $ parser (djot st)
+          expected = native
+          renderedDjot = encodeUtf8 . TL.fromStrict $ render (Just 62) $ renderDjot native
+          actual = either (\_ -> Doc mempty mempty mempty) id $ parser renderedDjot
+          lbsToStr = TL.unpack . fromUtf8
+          rtlog = lbsToStr (djot st) <>
+                  "↓\n" <>
+                  show native <> "\n" <>
+                  "↓\n" <>
+                  lbsToStr renderedDjot <>
+                  "↓\n" <>
+                  show actual <> "\n"
 
 data SpecTest = SpecTest
      { djot       :: BL.ByteString
