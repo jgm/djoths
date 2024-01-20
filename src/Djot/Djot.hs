@@ -319,6 +319,8 @@ instance ToLayout (Node Inline) where
           Delete ils -> surround '-' ils
           Superscript ils -> surround '^' ils
           Subscript ils -> surround '~' ils
+          Quoted SingleQuotes ils -> surround '\'' ils
+          Quoted DoubleQuotes ils -> surround '"' ils
           Verbatim bs -> pure $ toVerbatimSpan bs
           Math mt bs -> do
             let suffix = toVerbatimSpan bs

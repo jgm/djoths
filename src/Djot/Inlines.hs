@@ -470,11 +470,9 @@ pDoubleQuote :: P Inlines
 pDoubleQuote = (do
   pOpenDoubleQuote
   contents <- mconcat <$> many (fails pCloseDoubleQuote *> pInline)
-  (inDoubleQuotes contents <$ pCloseDoubleQuote) <|> pure (openDoubleQuote <> contents))
+  (doubleQuoted contents <$ pCloseDoubleQuote)
+    <|> pure (openDoubleQuote <> contents))
  <|> (closeDoubleQuote <$ asciiChar' '"')
-
-inDoubleQuotes :: Inlines -> Inlines
-inDoubleQuotes ils = openDoubleQuote <> ils <> closeDoubleQuote
 
 openDoubleQuote, closeDoubleQuote :: Inlines
 openDoubleQuote = str (strToUtf8 "\x201C")
@@ -505,14 +503,11 @@ pSingleQuote :: P Inlines
 pSingleQuote = (do
   pOpenSingleQuote
   contents <- mconcat <$> many (fails pCloseSingleQuote *> pInline)
-  (inSingleQuotes contents <$ pCloseSingleQuote) <|> pure (closeSingleQuote <> contents))
+  (singleQuoted contents <$ pCloseSingleQuote)
+    <|> pure (closeSingleQuote <> contents))
  <|> (closeSingleQuote <$ asciiChar' '\'')
 
-inSingleQuotes :: Inlines -> Inlines
-inSingleQuotes ils = openSingleQuote <> ils <> closeSingleQuote
-
-openSingleQuote, closeSingleQuote :: Inlines
-openSingleQuote = str (strToUtf8 "\x2018")
+closeSingleQuote :: Inlines
 closeSingleQuote = str (strToUtf8 "\x2019")
 
 pHyphens :: P Inlines

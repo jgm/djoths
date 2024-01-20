@@ -245,6 +245,8 @@ instance ToBuilder (Node Inline) where
       Delete ils -> inTags "del" attr <$> toBuilder ils
       Superscript ils -> inTags "sup" attr <$> toBuilder ils
       Subscript ils -> inTags "sub" attr <$> toBuilder ils
+      Quoted SingleQuotes ils -> inSingleQuotes <$> toBuilder ils
+      Quoted DoubleQuotes ils -> inDoubleQuotes <$> toBuilder ils
       Verbatim bs -> pure $ inTags "code" attr (escapeHtml bs)
       Math DisplayMath bs -> pure $
         inTags "span" (Attr [("class", "math display")] <> attr)
@@ -321,3 +323,10 @@ attrToBuilder (Attr pairs) = foldMap go pairs
  where
    go (k,v) = " " <> byteString k <> "=\"" <> escapeHtmlAttribute v <> "\""
 
+inSingleQuotes :: Builder -> Builder
+inSingleQuotes x =
+  byteString (strToUtf8 "\x2018") <> x <> byteString (strToUtf8 "\x2019")
+
+inDoubleQuotes :: Builder -> Builder
+inDoubleQuotes x =
+  byteString (strToUtf8 "\x201C") <> x <> byteString (strToUtf8 "\x201D")

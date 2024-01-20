@@ -29,6 +29,7 @@ module Djot.AST
   OrderedListAttributes(..),
   OrderedListDelim(..),
   OrderedListStyle(..),
+  QuoteType(..),
   delete,
   displayMath,
   insert,
@@ -48,6 +49,8 @@ module Djot.AST
   strong,
   subscript,
   superscript,
+  singleQuoted,
+  doubleQuoted,
   symbol,
   verbatim,
   urlLink,
@@ -111,6 +114,9 @@ data Target =
   | Reference ByteString
   deriving (Show, Ord, Eq)
 
+data QuoteType = SingleQuotes | DoubleQuotes
+  deriving (Show, Ord, Eq)
+
 data Inline =
       Str ByteString
     | Emph Inlines
@@ -131,6 +137,7 @@ data Inline =
     | EmailLink ByteString
     | RawInline Format ByteString
     | NonBreakingSpace
+    | Quoted QuoteType Inlines
     | SoftBreak
     | HardBreak
     deriving (Show, Ord, Eq)
@@ -260,6 +267,10 @@ inlineMath, displayMath :: ByteString -> Inlines
 inlineMath = inline . Math InlineMath
 displayMath = inline . Math DisplayMath
 
+singleQuoted, doubleQuoted :: Inlines -> Inlines
+singleQuoted = inline . Quoted SingleQuotes
+doubleQuoted = inline . Quoted DoubleQuotes
+
 footnoteReference :: ByteString -> Inlines
 footnoteReference = inline . FootnoteReference
 
@@ -328,10 +339,14 @@ inlinesToByteString = foldMap go . unInlines
         Delete ils -> inlinesToByteString ils
         Superscript ils -> inlinesToByteString ils
         Subscript ils -> inlinesToByteString ils
+        Quoted SingleQuotes ils ->
+          "\x2018" <> inlinesToByteString ils <> "\x2019"
+        Quoted DoubleQuotes ils ->
+          "\x201C" <> inlinesToByteString ils <> "\x201D"
         Verbatim bs -> bs
-        Math DisplayMath bs -> ("$$" <> bs <> "$$")
-        Math InlineMath bs -> ("$" <> bs <> "$")
-        Symbol bs -> (":" <> bs <> ":")
+        Math DisplayMath bs -> "$$" <> bs <> "$$"
+        Math InlineMath bs -> "$" <> bs <> "$"
+        Symbol bs -> ":" <> bs <> ":"
         Link ils _url -> inlinesToByteString ils
         Image ils _url -> inlinesToByteString ils
         Span ils -> inlinesToByteString ils
