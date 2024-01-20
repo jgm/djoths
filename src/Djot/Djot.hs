@@ -45,6 +45,8 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                   [(ord '_', 0)
                                   ,(ord '*', 0)
                                   ,(ord '~', 0)
+                                  ,(ord '\'', 0)
+                                  ,(ord '"', 0)
                                   ,(ord '^', 0)]
                                }
 
