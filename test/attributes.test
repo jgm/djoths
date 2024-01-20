@@ -141,7 +141,7 @@ but classes accumulate:
 {#id2}
 Okay
 .
-<p id="id2" key="val2" class="foo bar baz">Okay</p>
+<p class="foo bar baz" key="val2" id="id2">Okay</p>
 ```
 
 Attributes on different kinds of blocks:
