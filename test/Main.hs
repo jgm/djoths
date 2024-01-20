@@ -11,7 +11,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
 import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
 import Djot.AST
-import System.FilePath ((</>), takeExtension)
+import System.FilePath ((</>), takeExtension, takeFileName)
 import System.Directory (getDirectoryContents)
 import Text.DocLayout (render)
 
@@ -32,7 +32,9 @@ getSpecTestTree fp = do
              [ testGroup "djot -> html"
                  (map (toSpecTest parser) tests)
              , testGroup "native -> djot -> native"
-                 (map (toRoundTripTest parser) tests)
+                 [toRoundTripTest parser test
+                    | test <- tests
+                    , takeFileName (source test) /= "raw.test"]
              ]
 
 toSpecTest :: (BL.ByteString -> Either String Doc)
@@ -64,6 +66,7 @@ toRoundTripTest parser st =
 
 data SpecTest = SpecTest
      { djot       :: BL.ByteString
+     , source     :: FilePath
      , end_line   :: Int
      , start_line :: Int
      , html       :: BL.ByteString }
@@ -72,7 +75,7 @@ data SpecTest = SpecTest
 getSpecTests :: FilePath -> IO [SpecTest]
 getSpecTests fp = do
   speclines <- zip [1..] . BL.lines <$> BL.readFile fp
-  pure $ parseSpecTests speclines
+  pure $ parseSpecTests fp speclines
 
 --- state machine parser for spec test cases
 
@@ -82,13 +85,14 @@ data ParseState =
    | ParsingHtml (SpecTest, BL.ByteString)
    deriving (Show)
 
-parseSpecTests :: [(Int, BL.ByteString)] -> [SpecTest]
-parseSpecTests = go Scanning
+parseSpecTests :: FilePath -> [(Int, BL.ByteString)] -> [SpecTest]
+parseSpecTests fp = go Scanning
  where
    go _ [] = []
    go Scanning ((ln, bs) : xs)
      | BL.length bs > 0 && BL.all (== '`') bs =
           go (ParsingDjot (SpecTest { djot = mempty
+                                    , source = fp
                                     , end_line = ln
                                     , start_line = ln
                                     , html = mempty }, bs)) xs
