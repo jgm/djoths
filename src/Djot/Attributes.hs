@@ -14,7 +14,7 @@ import Data.ByteString (ByteString)
 --               key1 = "val1", key2 = "val2" }
 --  syntax:
 --
---  attributes <- '{' ignorable* attribute (ignorable attribute)* ignorable* '}'
+--  attributes <- '{' (ignorable attribute)* ignorable* '}'
 --  attribute <- identifier | class | keyval
 --  identifier <- '#' name
 --  class <- '.' name
@@ -30,12 +30,14 @@ import Data.ByteString (ByteString)
 pAttributes :: ParserT m s String Attr
 pAttributes = try $ do
   asciiChar' '{'
-  skipMany pIgnorable
-  x <- pAttribute
-  xs <- many (skipSome pIgnorable *> pAttribute)
+  atts <- (do
+    skipMany pIgnorable
+    x <- pAttribute
+    xs <- many (try (skipSome pIgnorable *> pAttribute))
+    pure $ mconcat (x:xs)) <|> pure mempty
   skipMany pIgnorable
   asciiChar' '}'
-  pure $ mconcat (x:xs)
+  pure atts
 
 pAttribute :: ParserT m s String Attr
 pAttribute = pIdentifier <|> pClass <|> pKeyVal
