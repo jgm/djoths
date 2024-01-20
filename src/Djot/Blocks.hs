@@ -11,7 +11,6 @@ where
 import Prelude hiding (div)
 import Data.Char (isSpace, ord, isAsciiLower, isAsciiUpper)
 import Data.Foldable as F
-import qualified FlatParse.Stateful as FP
 import Djot.FlatParse
 import Djot.AST
 import Djot.Inlines (parseInlines, parseTableCells)
@@ -691,18 +690,34 @@ attrSpec =
   { blockName = "Attributes"
   , blockType = Normal
   , blockStart = try $ do
-      lookahead (asciiChar' '{')
-      -- isolate pAttributes to content before newline
-      FP.Span s e <- lookahead $ spanOf
-                       (skipMany $ skipSatisfy' (\c -> c /= '\r' && c /= '\n'))
-      let linebytes = unPos s - unPos e
-      attr <- isolate linebytes pAttributes
-      modifyP $ \st -> st{ psAttributes = psAttributes st <> attr }
-      addContainer attrSpec ()
-  , blockContinue = \_ -> pure False
+      ind <- getIndent
+      lookahead $ asciiChar' '{'
+      addContainer attrSpec ind
+  , blockContinue = \container -> do
+      let ind = getContainerData container
+      skipMany spaceOrTab
+      curind <- getIndent
+      if curind <= ind
+         then pure False
+         else do
+           -- see if we've already got our attributes. This isn't
+           -- too efficient, because we end up parsing multiple times (again
+           -- at blockClose). TODO do better.
+           case runParser pAttributes () 0 (fold $ containerText container) of
+             OK _ _ _ -> pure False
+             _ -> pure True -- not yet: keep going!
   , blockContainsBlock = Nothing
-  , blockContainsLines = False
-  , blockClose = pure
+  , blockContainsLines = True
+  , blockClose = \container ->
+      case runParser pAttributes () 0 (fold $ containerText container) of
+        OK attr _ _ -> do
+          modifyP $ \st -> st{ psAttributes = psAttributes st <> attr }
+          pure container
+        Err e -> err e
+        Fail -> do  -- could not parse lines as attribute, treat as Para
+          ils <- parseTextLines container
+          pure $ container{ containerSpec = paraSpec
+                          , containerInlines = ils }
   , blockFinalize = const mempty
   }
 

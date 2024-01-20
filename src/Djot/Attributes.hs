@@ -73,10 +73,13 @@ pVal = pQuotedVal <|> pBareVal
 pQuotedVal :: ParserT m s String ByteString
 pQuotedVal = do
   asciiChar' '"'
-  result <- byteStringOf $ skipSome
-               (skipSatisfy (/= '"') <|> (asciiChar' '\\' *> skipAnyChar))
+  result <- some $
+                (asciiChar' '\\' *> satisfy' (const True))
+            <|> (' ' <$ skipSome ws)
+            <|> satisfy' (/= '"')
   asciiChar' '"'
-  pure result
+  pure $ strToUtf8 result
 
 pBareVal :: ParserT m s String ByteString
 pBareVal = pKey
+
