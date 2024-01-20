@@ -242,7 +242,7 @@ toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
 toDefinitionListItem (term, def) = do
   term' <- toLayout term
   def' <- toLayout def
-  pure $ hang 2 ":" $ term' $+$ def'
+  pure $ hang 2 (":" <> space) $ term' $+$ def'
 
 toTaskListItem :: (TaskStatus, Blocks) -> State BState (Layout.Doc Text)
 toTaskListItem (status, bls) = do
