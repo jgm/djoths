@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -19,23 +19,18 @@ main :: IO ()
 main = do
   specTests <- filter ((== ".test") . takeExtension) <$>
                   getDirectoryContents "test"
-  tests <- mapM (getSpecTestTree . ("test" </>)) specTests
-  defaultMain $ testGroup "Tests" tests
-
-getSpecTestTree :: FilePath
-                -> IO TestTree
-getSpecTestTree fp = do
-  tests <- getSpecTests fp
-  let parser = parseDoc ParseOptions{ optSourcePositions = False } .
-                 BL.toStrict
-  return $ testGroup fp
-             [ testGroup "djot -> html"
-                 (map (toSpecTest parser) tests)
-             , testGroup "native -> djot -> native"
-                 [toRoundTripTest parser test
-                    | test <- tests
-                    , takeFileName (source test) /= "raw.test"]
-             ]
+  tests <- mapM (\fp -> (fp,) <$> getSpecTests ("test" </> fp)) specTests
+  let parser = parseDoc ParseOptions{ optSourcePositions = False } . BL.toStrict
+  defaultMain $ testGroup "Tests" $
+    [ testGroup "djot -> html"
+        (map (\(fp, ts) ->
+                testGroup fp
+                 (map (toSpecTest parser) ts)) tests)
+    , testGroup "native -> djot -> native"
+       [testGroup fp (map (toRoundTripTest parser) ts)
+          | (fp, ts) <- tests
+          , takeFileName fp /= "raw.test"]
+    ]
 
 toSpecTest :: (BL.ByteString -> Either String Doc)
            -> SpecTest -> TestTree
