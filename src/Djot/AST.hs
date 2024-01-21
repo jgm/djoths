@@ -201,6 +201,7 @@ data Doc =
   Doc{ docBlocks :: Blocks
      , docFootnotes :: NoteMap
      , docReferences :: ReferenceMap
+     , docImplicitReferences :: ReferenceMap
      } deriving (Show, Ord, Eq)
 
 -- | A map from labels to contents.

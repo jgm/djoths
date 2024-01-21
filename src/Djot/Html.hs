@@ -28,7 +28,8 @@ renderHtml doc = evalState ( (<>) <$> toBuilder (docBlocks doc)
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty
                                , renderedNotes = mempty
-                               , referenceMap = docReferences doc }
+                               , referenceMap = docReferences doc <> docImplicitReferences doc
+                               }
 
 toNotes :: State BState Builder
 toNotes = do

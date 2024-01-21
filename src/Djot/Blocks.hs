@@ -42,6 +42,7 @@ parseDoc opts bs = do
                              , psCurrentLine = 0
                              , psCurrentLineStart = Pos 0
                              , psReferenceMap = mempty
+                             , psImplicitReferenceMap = mempty
                              , psNoteMap = mempty
                              , psAttributes = mempty
                              , psIds = mempty
@@ -403,11 +404,9 @@ sectionSpec =
                    pure (ident, normalizeLabel bs)
              -- add implicit reference
              let dest = "#" <> secid
-             modifyP $ \st -> st{ psReferenceMap =
-                    case lookupReference label (psReferenceMap st) of
-                        Nothing -> insertReference label (dest, Attr [("class", "implicit")])
-                                      (psReferenceMap st)
-                        Just _ -> psReferenceMap st }
+             modifyP $ \st -> st{ psImplicitReferenceMap =
+                                    insertReference label (dest, mempty)
+                                      (psImplicitReferenceMap st) }
              pure container{ containerData =
                                toDyn $ SectionData lev (Just secid) }
         _ -> pure container
@@ -844,6 +843,7 @@ data PState s =
   , psCurrentLine :: Int
   , psCurrentLineStart :: Pos
   , psReferenceMap :: ReferenceMap
+  , psImplicitReferenceMap :: ReferenceMap
   , psNoteMap :: NoteMap
   , psAttributes :: Attr
   , psIds :: Set ByteString
@@ -866,9 +866,11 @@ pDoc = do
   bls <- pBlocks
   notemap <- getsP psNoteMap
   refmap <- getsP psReferenceMap
+  implicitrefmap <- getsP psImplicitReferenceMap
   pure $ Doc{ docBlocks = bls
             , docFootnotes = notemap
-            , docReferences = refmap }
+            , docReferences = refmap
+            , docImplicitReferences = implicitrefmap }
 
 pBlocks :: P s Blocks
 pBlocks = processLines >> finalizeDocument
