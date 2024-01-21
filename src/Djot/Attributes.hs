@@ -27,51 +27,107 @@ import Data.ByteString (ByteString)
 --  ignorable <- whitespace | comment
 --  comment <- '%' [^%}]* '%'
 
-{- TODO: resumable parser:
+type AttrParserState = (AState, [AttrPart])
 
 data AState =
     SCANNING
-  | SCANNING_ID
-  | SCANNING_CLASS
-  | SCANNING_KEY
   | SCANNING_VALUE
-  | SCANNING_BARE_VALUE
   | SCANNING_QUOTED_VALUE
-  | SCANNING_QUOTED_VALUE_CONTINUATION
-  | SCANNING_ESCAPED
-  | SCANNING_ESCAPED_IN_CONTINUATION
   | SCANNING_COMMENT
   | FAIL
   | DONE
   | START
   deriving (Eq, Ord, Show)
 
-data Event =
+data AttrPart =
     AttrId ByteString
   | AttrClass ByteString
   | AttrKey ByteString
   | AttrValue ByteString
   deriving (Eq, Ord, Show)
 
-eventsToAttr :: [Event] -> Attr
-eventsToAttr = foldr go mempty
+attrParserStateToAttr :: AttrParserState -> Attr
+attrParserStateToAttr = go . snd
  where
-   go (AttrId bs) attr = Attr [("id",bs)] <> attr
-   go (AttrClass bs) attr = Attr [("class",bs)] <> attr
-   go (AttrKey bs) attr = Attr [(k,"")] <> attr
-   go (AttrValue bs) attr =
-     case attr of
-       Attr ((k,v) : rest) -> Attr ((k, v <> bs) : rest)
-       Attr [] -> Attr []
+   go [] = Attr []
+   go (AttrId bs : xs) = (<> Attr [("id",bs)]) $ go xs
+   go (AttrClass bs : xs) = (<> Attr [("class",bs)]) $ go xs
+   go zs =
+     case break isAttrKey zs of
+       (vs, AttrKey bs : xs) ->
+         (<> Attr [(bs, mconcat (map getAttrVal vs))]) $ go xs
+       _ -> Attr [] -- should not happen
+   isAttrKey (AttrKey _) = True
+   isAttrKey _ = False
+   getAttrVal (AttrValue bs) = bs
+   getAttrVal _ = mempty
 
--- resumable parser
-pAttrEvents :: AState -> ParserT m AState (AState, [Event])
-pAttrEvents = undefined
-
--}
+-- resumable parser -- parts in reverse order
+pAttrParts :: AttrParserState -> ParserT m s String AttrParserState
+pAttrParts = go
+ where
+   go (state, parts) =
+     -- if no more input, return intermediate state
+     (eof *> pure (state, parts)) <|>
+       (case state of
+         SCANNING ->
+           (asciiChar' '}' *> pure (DONE, parts))
+           <|>
+           (do asciiChar' '#'
+               ident <- pName
+               go (SCANNING, (AttrId ident : parts)))
+           <|>
+           (do asciiChar' '.'
+               cls <- pName
+               go (SCANNING, (AttrClass cls : parts)))
+           <|>
+           (asciiChar' '%' *> go (SCANNING_COMMENT, parts))
+           <|>
+           (do key <- pKey
+               asciiChar' '='
+               go (SCANNING_VALUE, (AttrKey key : parts)))
+           <|>
+           (skipSome ws *> go (SCANNING, parts))
+           <|>
+           pure (FAIL, parts)
+         SCANNING_VALUE ->
+           (asciiChar' '"' *> go (SCANNING_QUOTED_VALUE, parts))
+           <|>
+           (do val <- pBareVal
+               go (SCANNING, AttrValue val : parts))
+           <|>
+           pure (FAIL, parts)
+         SCANNING_QUOTED_VALUE ->
+           (asciiChar' '"' *> go (SCANNING, parts))
+           <|>
+           (do s <- some $ (asciiChar' '\\' *> satisfy' (const True))
+                        <|> (' ' <$ skipSome ws)
+                        <|> satisfy' (/= '"')
+               go (SCANNING_QUOTED_VALUE, AttrValue (strToUtf8 s) : parts))
+         SCANNING_COMMENT ->
+           (asciiChar' '%' *> go (SCANNING, parts))
+           <|>
+           (asciiChar' '}' *> pure (DONE, parts))
+           <|>
+           (skipSome (satisfyAscii' (\c -> c /= '%' && c /= '}')) *>
+             go (SCANNING_COMMENT, parts))
+         FAIL -> pure (FAIL, parts)
+         DONE -> pure (DONE, parts)
+         START -> (asciiChar' '{' *> go (SCANNING, [])) <|> pure (FAIL, []))
+          <|> pure (FAIL, parts)
 
 pAttributes :: ParserT m s String Attr
 pAttributes = try $ do
+  state@(st, _) <- pAttrParts (START, [])
+  case st of
+    DONE -> pure $ attrParserStateToAttr state
+    FAIL -> err "Attribute parsing failed"
+    _ -> err $ "Attribute parser returned " <> show st
+
+--- old parser ---
+
+pAttributes' :: ParserT m s String Attr
+pAttributes' = try $ do
   asciiChar' '{'
   atts <- (do
     skipMany pIgnorable
@@ -110,9 +166,10 @@ pName = byteStringOf $ skipSome $
     && (not (isPunctuation c) || c == ':' || c == '_' || c == '-'))
 
 pKey :: ParserT m s String ByteString
-pKey =
-  byteStringOf $ skipSome $ skipSatisfyAscii
-    (\c -> isAlphaNum c || c == ':' || c == '_' || c == '-')
+pKey = byteStringOf $ skipSome $ skipSatisfyAscii isKeyChar
+
+isKeyChar :: Char -> Bool
+isKeyChar c = isAlphaNum c || c == ':' || c == '_' || c == '-'
 
 pVal :: ParserT m s String ByteString
 pVal = pQuotedVal <|> pBareVal
