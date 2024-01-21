@@ -405,7 +405,7 @@ sectionSpec =
              let dest = "#" <> secid
              modifyP $ \st -> st{ psReferenceMap =
                     case lookupReference label (psReferenceMap st) of
-                        Nothing -> insertReference label (dest, mempty)
+                        Nothing -> insertReference label (dest, Attr [("class", "implicit")])
                                       (psReferenceMap st)
                         Just _ -> psReferenceMap st }
              pure container{ containerData =

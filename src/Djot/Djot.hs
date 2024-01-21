@@ -66,11 +66,10 @@ toReferences (ReferenceMap refs) =
 toReference :: (ByteString, (ByteString, Attr)) -> State BState (Layout.Doc Text)
 toReference (label, (url, attr)) = do
   attr' <- toLayout attr
-  let ref = "[" <> literal (fromUtf8 label) <> "]:" <+>
-                 literal (fromUtf8 url)
-  pure $ attr' $$ ref
-
-  -- ReferenceMap { unReferenceMap :: M.Map ByteString (ByteString, Attr) }
+  let ref = "[" <> literal (fromUtf8 label) <> "]:" <+> literal (fromUtf8 url)
+  case attr of
+    Attr [("class","implicit")] -> pure mempty -- don't make an implicit ref explicit
+    _ -> pure $ attr' $$ ref
 
 toNotes :: State BState (Layout.Doc Text)
 toNotes = do
