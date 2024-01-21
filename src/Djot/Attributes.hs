@@ -27,6 +27,49 @@ import Data.ByteString (ByteString)
 --  ignorable <- whitespace | comment
 --  comment <- '%' [^%}]* '%'
 
+{- TODO: resumable parser:
+
+data AState =
+    SCANNING
+  | SCANNING_ID
+  | SCANNING_CLASS
+  | SCANNING_KEY
+  | SCANNING_VALUE
+  | SCANNING_BARE_VALUE
+  | SCANNING_QUOTED_VALUE
+  | SCANNING_QUOTED_VALUE_CONTINUATION
+  | SCANNING_ESCAPED
+  | SCANNING_ESCAPED_IN_CONTINUATION
+  | SCANNING_COMMENT
+  | FAIL
+  | DONE
+  | START
+  deriving (Eq, Ord, Show)
+
+data Event =
+    AttrId ByteString
+  | AttrClass ByteString
+  | AttrKey ByteString
+  | AttrValue ByteString
+  deriving (Eq, Ord, Show)
+
+eventsToAttr :: [Event] -> Attr
+eventsToAttr = foldr go mempty
+ where
+   go (AttrId bs) attr = Attr [("id",bs)] <> attr
+   go (AttrClass bs) attr = Attr [("class",bs)] <> attr
+   go (AttrKey bs) attr = Attr [(k,"")] <> attr
+   go (AttrValue bs) attr =
+     case attr of
+       Attr ((k,v) : rest) -> Attr ((k, v <> bs) : rest)
+       Attr [] -> Attr []
+
+-- resumable parser
+pAttrEvents :: AState -> ParserT m AState (AState, [Event])
+pAttrEvents = undefined
+
+-}
+
 pAttributes :: ParserT m s String Attr
 pAttributes = try $ do
   asciiChar' '{'
