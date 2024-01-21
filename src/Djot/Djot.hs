@@ -9,7 +9,6 @@ module Djot.Djot
 where
 
 import Djot.AST
-import Data.Tuple (swap)
 import Data.Char (ord, chr)
 import Djot.FlatParse (utf8ToStr)
 import Data.ByteString (ByteString)
@@ -17,7 +16,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
-import Data.List (sort, intersperse, transpose)
+import Data.List (sortOn, intersperse, transpose)
 import Control.Monad
 import Control.Monad.State
 import qualified Data.Foldable as F
@@ -74,8 +73,9 @@ toReference (label, (url, attr)) = do
 toNotes :: State BState (Layout.Doc Text)
 toNotes = do
   noterefs <- gets noteOrder
-  let labels = map snd $ sort $ map swap $ M.toList noterefs
-  vsep <$> mapM toNote labels
+  allLabels <- M.keys . unNoteMap <$> gets noteMap
+  let sortedLabels = sortOn (\label -> M.lookup label noterefs) allLabels
+  (<> cr) . vsep <$> mapM toNote sortedLabels
 
 toNote :: ByteString -> State BState (Layout.Doc Text)
 toNote label = do
