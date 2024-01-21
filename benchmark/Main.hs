@@ -23,10 +23,10 @@ main = do
    ++
    map (\(fn, bs) ->
      let doc = either error id $ parseDoc ParseOptions{ optSourcePositions = False } bs
-     in bench ("renderHtml " <> fn) $ whnf (BL.toStrict . toLazyByteString . renderHtml) doc)
+     in bench ("renderHtml " <> fn) $ nf (BL.toStrict . toLazyByteString . renderHtml) doc)
      files
    ++
    map (\(fn, bs) ->
      let doc = either error id $ parseDoc ParseOptions{ optSourcePositions = False } bs
-     in bench ("renderDjot " <> fn) $ whnf (render (Just 72) . renderDjot) doc)
+     in bench ("renderDjot " <> fn) $ nf (render (Just 72) . renderDjot) doc)
      files
