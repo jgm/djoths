@@ -186,9 +186,10 @@ instance ToLayout (Node Block) where
                BlockQuote bls ->
                  prefixed "> " <$> toLayout bls
                CodeBlock lang bs -> do
-                 let longesttickline = maximum
-                                   $ map (B8.length . B8.takeWhile (=='`'))
-                                   $ B8.lines bs
+                 let longesttickline =
+                       case B8.lines bs of
+                         [] -> 0
+                         ls -> maximum $ map (B8.length . B8.takeWhile (=='`')) ls
                  let numticks = max 3 longesttickline
                  let ticks = literal $ T.replicate numticks "`"
                  let lang' = if lang == mempty
