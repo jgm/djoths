@@ -61,7 +61,7 @@ data BState =
 
 toReferences :: ReferenceMap -> State BState (Layout.Doc Text)
 toReferences (ReferenceMap refs) =
-  vcat <$> mapM toReference (M.toList refs)
+  (<> cr) . vcat <$> mapM toReference (M.toList refs)
 
 toReference :: (ByteString, (ByteString, Attr)) -> State BState (Layout.Doc Text)
 toReference (label, (url, attr)) = do
