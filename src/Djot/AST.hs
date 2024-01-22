@@ -207,7 +207,10 @@ data Doc =
 
 -- | A map from labels to contents.
 newtype NoteMap = NoteMap { unNoteMap :: M.Map ByteString Blocks }
-  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
+  deriving (Show, Ord, Semigroup, Monoid, Typeable, Generic)
+
+instance Eq NoteMap where
+  NoteMap m1 == NoteMap m2 = M.toAscList m1 == M.toAscList m2
 
 insertNote :: ByteString -> Blocks -> NoteMap -> NoteMap
 insertNote label ref (NoteMap m) =
@@ -219,7 +222,10 @@ lookupNote label (NoteMap m) =
 
 newtype ReferenceMap =
   ReferenceMap { unReferenceMap :: M.Map ByteString (ByteString, Attr) }
-  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
+  deriving (Show, Ord, Semigroup, Monoid, Typeable, Generic)
+
+instance Eq ReferenceMap where
+  ReferenceMap m1 == ReferenceMap m2 = M.toAscList m1 == M.toAscList m2
 
 normalizeLabel :: ByteString -> ByteString
 normalizeLabel = B8.unwords . B8.words
