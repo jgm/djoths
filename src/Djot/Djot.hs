@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE Strict #-}
+{-# LANGUAGE StrictData #-}
 module Djot.Djot
   ( renderDjot
   )
