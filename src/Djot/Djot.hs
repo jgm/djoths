@@ -391,8 +391,12 @@ toLinkSuffix (Reference label) d
 
 toVerbatimSpan :: ByteString -> Layout.Doc Text
 toVerbatimSpan bs =
-  ticks <> literal (fromUtf8 bs) <> ticks
+  ticks <> (if startsWithTick then " " else mempty) <>
+    literal (fromUtf8 bs) <>
+    (if endsWithTick then " " else mempty) <> ticks
  where
+  startsWithTick = B8.take 1 bs == "`"
+  endsWithTick = B8.takeEnd 1 bs == "`"
   ticks = literal $ T.replicate (maxticks + 1) "`"
   maxticks = fst $ B8.foldl' scanTicks (0,0) bs
   scanTicks (longest, theseticks) '`' =
