@@ -217,7 +217,7 @@ instance ToLayout (Node Block) where
                  caption <- case mbCaption of
                                Nothing -> pure mempty
                                Just (Caption bls)
-                                       -> hang 2 "^" <$> toLayout bls
+                                       -> hang 2 ("^" <> space) <$> toLayout bls
                  body <- toTable rows
                  pure $ body $+$ caption
                RawBlock (Format "djot") bs ->
