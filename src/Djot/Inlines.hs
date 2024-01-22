@@ -398,8 +398,8 @@ pAutolink = try $ do
   asciiChar' '>'
   let url = B8.filter (\c -> c /= '\n' && c /= '\r') res
   case B8.find (\c -> c == '@' || c == ':' || c == '.') url of
-    Just '@' -> pure $ link (str url) (Direct ("mailto:" <> url))
-    Just _ -> pure $ link (str url) (Direct url)
+    Just '@' -> pure $ emailLink url
+    Just _ -> pure $ urlLink url
     Nothing -> mzero
 
 pLinkOrSpan :: P Inlines
