@@ -311,7 +311,9 @@ instance ToLayout (Node Inline) where
           Str bs -> do
             let fixSmart = T.replace "\x2014" "---" .
                            T.replace "\x2013" "--" .
-                           T.replace "\x2026" "..."
+                           T.replace "\x2026" "..." .
+                           T.replace "\x2019" "'" .
+                           T.replace "\x201C" "\""
             let chunks =
                   T.groupBy
                    (\c d -> (c /= ' ' && d /= ' ') || (c == ' ' && d == ' '))
