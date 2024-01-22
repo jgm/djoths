@@ -318,11 +318,12 @@ instance ToLayout (Node Inline) where
           Str bs -> do
             let chunks =
                   T.groupBy
-                   (\c d -> c /= ' ' && d /= ' ')
+                   (\c d -> (c /= ' ' && d /= ' ') || (c == ' ' && d == ' '))
                    (escapeDjot Normal bs)
-            let toChunk ch = if T.all (== ' ') ch
-                                then space
-                                else literal $ ch
+            let toChunk ch
+                  = case T.uncons ch of
+                      Just (' ', rest) -> space <> literal rest
+                      _ -> literal ch
             pure $ hcat $ map toChunk chunks
           SoftBreak -> pure cr
           HardBreak -> pure (literal "\\" <> cr)
