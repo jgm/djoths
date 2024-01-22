@@ -37,7 +37,6 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                , noteOrder = mempty
                                , referenceMap = docReferences doc
                                , afterSpace = True
-                               , divNestingLevel = 0
                                , nestings = IntMap.fromList
                                   -- anything not in this list
                                   -- will ALWAYS get {}:
@@ -54,7 +53,6 @@ data BState =
          , noteOrder :: M.Map ByteString Int
          , referenceMap :: ReferenceMap
          , afterSpace :: Bool
-         , divNestingLevel :: Int
          , nestings :: IntMap.IntMap Int
          }
 
@@ -190,11 +188,9 @@ instance ToLayout (Node Block) where
                     Loose -> vsep) <$>
                  mapM toTaskListItem items
                Div bls -> do
-                 level <- gets divNestingLevel
-                 modify' $ \st -> st{ divNestingLevel = level + 1 }
+                 let nestedDivs = computeDivNestingLevel bls
                  contents <- toLayout bls
-                 modify' $ \st -> st{ divNestingLevel = level }
-                 let colons = literal (T.replicate (level + 3) ":")
+                 let colons = literal (T.replicate (nestedDivs + 3) ":")
                  pure $ colons $$ contents $$ colons
                BlockQuote bls ->
                  if bls == mempty
@@ -432,3 +428,11 @@ surround c ils = do
 
 toNoteRef :: ByteString -> Layout.Doc Text
 toNoteRef bs = literal ("[^" <> fromUtf8 bs <> "]")
+
+computeDivNestingLevel :: Blocks -> Int
+computeDivNestingLevel =
+  foldr go 0 . unBlocks
+ where
+   go (Node _ (Div bls')) n =
+     max (n + 1) (foldr go (n + 1) (unBlocks bls'))
+   go _ n = n
