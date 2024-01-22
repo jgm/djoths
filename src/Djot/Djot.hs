@@ -197,7 +197,9 @@ instance ToLayout (Node Block) where
                  let colons = literal (T.replicate (level + 3) ":")
                  pure $ colons $$ contents $$ colons
                BlockQuote bls ->
-                 prefixed "> " <$> toLayout bls
+                 if bls == mempty
+                    then pure ">"
+                    else prefixed "> " <$> toLayout bls
                CodeBlock lang bs -> do
                  let longesttickline =
                        case B8.lines bs of
