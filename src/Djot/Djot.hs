@@ -319,10 +319,13 @@ instance ToLayout (Node Inline) where
   toLayout (Node attr il) = (<>)
     <$> case il of
           Str bs -> do
+            let fixSmart = T.replace "\x2014" "---" .
+                           T.replace "\x2013" "--" .
+                           T.replace "\x2026" "..."
             let chunks =
                   T.groupBy
                    (\c d -> (c /= ' ' && d /= ' ') || (c == ' ' && d == ' '))
-                   (escapeDjot Normal bs)
+                   (fixSmart $ escapeDjot Normal bs)
             let toChunk ch
                   = case T.uncons ch of
                       Just (' ', rest) -> space <> literal rest
