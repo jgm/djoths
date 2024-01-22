@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Djot.AST
 ( Inline(..),
   Inlines(..),
@@ -78,9 +79,10 @@ import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
 import Data.Data (Data, Typeable)
 import qualified Data.ByteString.Char8 as B8
+import GHC.Generics (Generic)
 
 newtype Attr = Attr [(ByteString, ByteString)]
-  deriving (Show, Eq, Ord, Typeable, Data)
+  deriving (Show, Eq, Ord, Typeable, Generic, Data)
 
 instance Semigroup Attr where
   Attr as <> Attr bs =
@@ -101,21 +103,21 @@ integrate (k,v) kvs =
       | otherwise -> kvs
 
 data Node a = Node Attr a
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Typeable, Generic)
 
 newtype Format = Format { unFormat :: ByteString }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Typeable, Generic)
 
 data MathStyle = DisplayMath | InlineMath
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data Target =
     Direct ByteString
   | Reference ByteString
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data QuoteType = SingleQuotes | DoubleQuotes
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data Inline =
       Str ByteString
@@ -140,43 +142,43 @@ data Inline =
     | Quoted QuoteType Inlines
     | SoftBreak
     | HardBreak
-    deriving (Show, Ord, Eq)
+    deriving (Show, Ord, Eq, Typeable, Generic)
 
 newtype Inlines = Inlines { unInlines :: Seq (Node Inline) }
-  deriving (Show, Semigroup, Monoid, Eq, Ord)
+  deriving (Show, Semigroup, Monoid, Eq, Ord, Typeable, Generic)
 
 data ListSpacing = Tight | Loose
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data OrderedListStyle =
   Decimal | LetterUpper | LetterLower | RomanUpper | RomanLower
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data OrderedListDelim =
   RightPeriod | RightParen | LeftRightParen
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data OrderedListAttributes =
   OrderedListAttributes
   { orderedListStyle :: OrderedListStyle
   , orderedListDelim :: OrderedListDelim
   , orderedListStart :: Int }
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data TaskStatus = Complete | Incomplete
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 newtype Caption = Caption Blocks
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data Align = AlignLeft | AlignRight | AlignCenter | AlignDefault
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data CellType = HeadCell | BodyCell
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data Cell = Cell CellType Align Inlines
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 data Block =
     Para Inlines
@@ -192,20 +194,20 @@ data Block =
   | ThematicBreak
   | Table (Maybe Caption) [[Cell]]
   | RawBlock Format ByteString
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Typeable, Generic)
 
 newtype Blocks = Blocks { unBlocks :: Seq (Node Block) }
-  deriving (Show, Semigroup, Monoid, Ord, Eq)
+  deriving (Show, Semigroup, Monoid, Ord, Eq, Typeable, Generic)
 
 data Doc =
   Doc{ docBlocks :: Blocks
      , docFootnotes :: NoteMap
      , docReferences :: ReferenceMap
-     } deriving (Show, Ord, Eq)
+     } deriving (Show, Ord, Eq, Typeable, Generic)
 
 -- | A map from labels to contents.
 newtype NoteMap = NoteMap { unNoteMap :: M.Map ByteString Blocks }
-  deriving (Show, Ord, Eq, Semigroup, Monoid)
+  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
 
 insertNote :: ByteString -> Blocks -> NoteMap -> NoteMap
 insertNote label ref (NoteMap m) =
@@ -217,7 +219,7 @@ lookupNote label (NoteMap m) =
 
 newtype ReferenceMap =
   ReferenceMap { unReferenceMap :: M.Map ByteString (ByteString, Attr) }
-  deriving (Show, Ord, Eq, Semigroup, Monoid)
+  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
 
 normalizeLabel :: ByteString -> ByteString
 normalizeLabel = B8.unwords . B8.words
