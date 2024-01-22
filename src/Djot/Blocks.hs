@@ -42,7 +42,6 @@ parseDoc opts bs = do
                              , psCurrentLine = 0
                              , psCurrentLineStart = Pos 0
                              , psReferenceMap = mempty
-                             , psImplicitReferenceMap = mempty
                              , psNoteMap = mempty
                              , psAttributes = mempty
                              , psIds = mempty
@@ -383,11 +382,11 @@ sectionSpec =
         h Seq.:<| _
           | blockName (containerSpec h) == "Heading" -> do
              let SectionData lev _ = getContainerData container
-             (secid, label) <- do
+             (secid, attr, label) <- do
                let bs = fold (containerText h)
                let Attr ats = containerAttr container
                case lookup "id" ats of
-                 Just id' -> pure (id', normalizeLabel bs)
+                 Just id' -> pure (id', mempty, normalizeLabel bs)
                  Nothing -> do -- generate id from title
                    let generateId (n :: Int) base = do
                          let candidate
@@ -401,14 +400,19 @@ sectionSpec =
                                 st{ psIds = Set.insert candidate (psIds st) }
                               pure candidate
                    ident <- generateId 0 (toIdentifier bs)
-                   pure (ident, normalizeLabel bs)
+                   pure (ident, Attr [("_autogen","1")], normalizeLabel bs)
              -- add implicit reference
              let dest = "#" <> secid
-             modifyP $ \st -> st{ psImplicitReferenceMap =
-                                    insertReference label (dest, mempty)
-                                      (psImplicitReferenceMap st) }
+             modifyP $ \st -> st{ psReferenceMap =
+                                   case lookupReference label (psReferenceMap st) of
+                                     Nothing -> insertReference label
+                                                 (dest, Attr [("_implicit","1")])
+                                                 (psReferenceMap st)
+                                     Just _ -> psReferenceMap st }
+
              pure container{ containerData =
-                               toDyn $ SectionData lev (Just secid) }
+                               toDyn $ SectionData lev (Just secid)
+                           , containerAttr = containerAttr container <> attr }
         _ -> pure container
   , blockFinalize = \container ->
       let blocks = finalizeChildren container
@@ -843,7 +847,6 @@ data PState s =
   , psCurrentLine :: Int
   , psCurrentLineStart :: Pos
   , psReferenceMap :: ReferenceMap
-  , psImplicitReferenceMap :: ReferenceMap
   , psNoteMap :: NoteMap
   , psAttributes :: Attr
   , psIds :: Set ByteString
@@ -866,11 +869,9 @@ pDoc = do
   bls <- pBlocks
   notemap <- getsP psNoteMap
   refmap <- getsP psReferenceMap
-  implicitrefmap <- getsP psImplicitReferenceMap
   pure $ Doc{ docBlocks = bls
             , docFootnotes = notemap
-            , docReferences = refmap
-            , docImplicitReferences = implicitrefmap }
+            , docReferences = refmap }
 
 pBlocks :: P s Blocks
 pBlocks = processLines >> finalizeDocument
