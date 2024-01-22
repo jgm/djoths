@@ -32,7 +32,7 @@ renderDjot :: Doc -> Layout.Doc Text
 renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                refs <- gets referenceMap >>= toReferences
                                notes <- toNotes
-                               pure $ body $$ refs $$ notes)
+                               pure $ body $$ refs $$ notes <> cr)
                          BState{ noteMap = docFootnotes doc
                                , noteOrder = mempty
                                , referenceMap = docReferences doc
@@ -358,7 +358,7 @@ instance ToLayout (Node Inline) where
           Image ils target -> do
             contents <- toLayout ils
             let suffix = toLinkSuffix target contents
-            pure $ "!" <> contents <> "]" <> suffix
+            pure $ "![" <> contents <> "]" <> suffix
           EmailLink email -> pure $ "<" <> literal (fromUtf8 email) <> ">"
           UrlLink url -> pure $ "<" <> literal (fromUtf8 url) <> ">"
           RawInline (Format "djot") bs -> pure $ literal (fromUtf8 bs)
