@@ -226,6 +226,7 @@ instance ToLayout (Node Block) where
          <* modify' (\st -> st{ afterSpace = True })
 
 toTable :: [[Cell]] -> State BState (Layout.Doc Text)
+toTable [] = pure "|--|" -- minimal empty table
 toTable rows = do
   let getCellContents (Cell hd al ils) = ((hd, al),) <$> toLayout ils
   rowContents <- mapM (mapM getCellContents) rows
