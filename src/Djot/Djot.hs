@@ -119,10 +119,12 @@ escapeDjot Normal bs
     case cs of
       '.':'.':_ -> '\\' : '.' : go cs
       _ -> '.' : go cs
-  go (c:':':' ':cs)
-    | escapable c = '\\' : c : ':' : ' ' : go cs
-    | otherwise = c : ':' : ' ' : go cs
-  go [':'] = [':']
+  go (c:':':cs)
+    | case cs of
+        [] -> True
+        (' ':_) -> True
+        _ -> False
+       = (if escapable c then ('\\' :) else id) $ c : ':' : ' ' : go cs
   go (c:cs)
     | escapable c = '\\' : c : go cs
     | otherwise = c : go cs
