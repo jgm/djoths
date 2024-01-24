@@ -9,7 +9,7 @@ module Djot.Blocks
 where
 
 import Prelude hiding (div)
-import Data.Char (isSpace, ord, isAsciiLower, isAsciiUpper)
+import Data.Char (ord, isAsciiLower, isAsciiUpper)
 import Data.Foldable as F
 import Djot.FlatParse
 import Djot.AST
@@ -620,7 +620,7 @@ codeBlockSpec =
       ticks <- byteStringOf $ asciiChar' '`' *> asciiChar' '`' *> skipSome (asciiChar' '`')
       skipMany spaceOrTab
       lang <- try (byteStringOf
-                    (skipSome $ skipSatisfy' (\c -> c /= '`' && not (isSpace c)))
+                    (skipSome $ skipSatisfyAscii' (\c -> c /= '`' && not (isWs c)))
                     <* skipMany spaceOrTab)
              <|> pure ""
       lookahead endline
@@ -660,7 +660,7 @@ divSpec =
       colons <- byteStringOf $
         asciiChar' ':' *> asciiChar' ':' *> skipSome (asciiChar' ':')
       skipMany spaceOrTab
-      label <- byteStringOf $ skipMany $ skipSatisfy' (not . isSpace)
+      label <- byteStringOf $ skipMany $ skipSatisfyAscii' (not . isWs)
       skipMany spaceOrTab
       lookahead endline
       addContainer divSpec (DivData colons label)
@@ -736,9 +736,9 @@ referenceDefinitionSpec =
   , blockType = Normal
   , blockStart = try $ do
       asciiChar' '['
-      lookahead (skipSatisfy' (/= '^')) -- footnote
+      fails (asciiChar' '^') -- footnote
       label <- byteStringOf
-                (some (skipSatisfy' (\c -> c /= ']' && c /= '\n')))
+                (some (skipSatisfyAscii' (\c -> c /= ']' && c /= '\n')))
       asciiChar' ']'
       asciiChar' ':'
       skipMany spaceOrTab
@@ -774,7 +774,7 @@ footnoteSpec =
       asciiChar' '['
       asciiChar' '^'
       label <- byteStringOf
-                (some (skipSatisfy' (\c -> c /= ']' && c /= '\n')))
+                (some (skipSatisfyAscii' (\c -> c /= ']' && c /= '\n')))
       asciiChar' ']'
       asciiChar' ':'
       skipMany spaceOrTab
@@ -1017,6 +1017,8 @@ closeInappropriateContainers spec = do
 {-# INLINE pLine #-}
 pLine :: P s ByteString
 pLine = byteStringOf $
+  -- we can use skipSatisfyAscii (without ') because we no longer
+  -- need to track indentation:
   (skipSome (skipSatisfyAscii (\c -> c /= '\n' && c /= '\r'))
        <* optional_ endline)
     <|> endline
