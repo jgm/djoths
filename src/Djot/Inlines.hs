@@ -102,7 +102,7 @@ pInline = pInline' >>= pOptionalAttributes
 
 pOptionalAttributes :: Inlines -> P Inlines
 pOptionalAttributes (Many ils) =
- (lookahead (asciiChar' '{') *> do
+ (lookahead (satisfyAscii (== '{')) *> do
   attr <- mconcat <$> some pAttributes
   case attr of
     Attr [] -> pure (Many ils)
