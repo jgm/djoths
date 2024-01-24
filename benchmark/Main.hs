@@ -5,7 +5,8 @@
 import Test.Tasty.Bench
 import Data.Functor.Identity  -- base >= 4.8
 import qualified Data.ByteString as B
-import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
+import Djot ( ParseOptions(..), RenderOptions(..),
+              parseDoc, renderHtml, renderDjot )
 import Data.ByteString.Builder ( toLazyByteString )
 import Text.DocLayout (render)
 import System.Directory
@@ -23,10 +24,10 @@ main = do
    ++
    map (\(fn, bs) ->
      let doc = either error id $ parseDoc ParseOptions bs
-     in bench ("renderHtml " <> fn) $ nf (BL.toStrict . toLazyByteString . renderHtml) doc)
+     in bench ("renderHtml " <> fn) $ nf (BL.toStrict . toLazyByteString . renderHtml RenderOptions{preserveSoftBreaks = True}) doc)
      files
    ++
    map (\(fn, bs) ->
      let doc = either error id $ parseDoc ParseOptions bs
-     in bench ("renderDjot " <> fn) $ nf (render (Just 72) . renderDjot) doc)
+     in bench ("renderDjot " <> fn) $ nf (render (Just 72) . renderDjot RenderOptions{preserveSoftBreaks = True}) doc)
      files

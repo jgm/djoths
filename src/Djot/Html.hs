@@ -5,12 +5,14 @@
 module Djot.Html
   ( inlinesToByteString
   , renderHtml
+  , RenderOptions(..)
   )
 where
 
 import Djot.AST
 import Data.Tuple (swap)
 import Djot.FlatParse (strToUtf8)
+import Djot.Options (RenderOptions(..))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
@@ -22,13 +24,15 @@ import Data.List (sort)
 import Control.Monad.State
 import qualified Data.Foldable as F
 
-renderHtml :: Doc -> Builder
-renderHtml doc = evalState ( (<>) <$> toBuilder (docBlocks doc)
+renderHtml :: RenderOptions -> Doc -> Builder
+renderHtml opts doc = evalState
+                          ( (<>) <$> toBuilder (docBlocks doc)
                                  <*> toNotes )
                          BState{ noteMap = docFootnotes doc
                                , noteRefs = mempty
                                , renderedNotes = mempty
                                , referenceMap = docReferences doc
+                               , options = opts
                                }
 
 toNotes :: State BState Builder
@@ -95,6 +99,7 @@ data BState =
          , noteRefs :: M.Map ByteString Int
          , renderedNotes :: M.Map ByteString Builder
          , referenceMap :: ReferenceMap
+         , options :: RenderOptions
          }
 
 {-# SPECIALIZE toBuilder :: Blocks -> State BState Builder #-}

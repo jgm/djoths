@@ -9,7 +9,8 @@ import Data.Text.Lazy.Encoding (decodeUtf8With, encodeUtf8)
 import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
-import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
+import Djot ( ParseOptions(..), RenderOptions(..),
+              parseDoc, renderHtml, renderDjot )
 import Djot.AST
 import System.FilePath ((</>), takeExtension, takeFileName)
 import System.Directory (getDirectoryContents)
@@ -38,7 +39,8 @@ toSpecTest parser st =
   testCase name (actual @?= expected)
     where name = "lines " ++ show (start_line st) ++ "-" ++ show (end_line st)
           expected = fromUtf8 $ html st
-          actual = either mempty (fromUtf8 . toLazyByteString . renderHtml)
+          ropts = RenderOptions{ preserveSoftBreaks = True }
+          actual = either mempty (fromUtf8 . toLazyByteString . renderHtml ropts)
                      . parser $ djot st
 
 toRoundTripTest :: (BL.ByteString -> Either String Doc)
@@ -48,7 +50,9 @@ toRoundTripTest parser st =
     where name = "lines " ++ show (start_line st) ++ "-" ++ show (end_line st)
           native = either (\_ -> Doc mempty mempty mempty) id $ parser (djot st)
           expected = native
-          renderedDjot = encodeUtf8 . TL.fromStrict $ render (Just 62) $ renderDjot native
+          ropts = RenderOptions{ preserveSoftBreaks = True }
+          renderedDjot = encodeUtf8 . TL.fromStrict $ render (Just 62) $
+                           renderDjot ropts native
           actual = either (\_ -> Doc mempty mempty mempty) id $ parser renderedDjot
           lbsToStr = TL.unpack . fromUtf8
           rtlog = lbsToStr (djot st) <>

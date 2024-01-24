@@ -5,7 +5,8 @@ module Main where
 import Control.Monad
 import qualified Data.ByteString as B
 import Data.ByteString.Builder (hPutBuilder)
-import Djot ( ParseOptions(..), parseDoc, renderHtml, renderDjot )
+import Djot ( ParseOptions(..), RenderOptions(..),
+              parseDoc, renderHtml, renderDjot )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure, ExitSuccess), exitWith )
@@ -36,11 +37,12 @@ main = do
           [] -> B.getContents
           fs  -> mconcat <$> mapM B.readFile fs
   let popts = ParseOptions
+  let ropts = RenderOptions { preserveSoftBreaks = True }
   case parseDoc popts bs of
     Right doc -> do
       case format opts of
-        Html -> hPutBuilder stdout $ renderHtml doc
-        Djot -> TIO.putStr $ render Nothing (renderDjot doc)
+        Html -> hPutBuilder stdout $ renderHtml ropts doc
+        Djot -> TIO.putStr $ render Nothing (renderDjot ropts doc)
         Ast -> print doc
       exitWith ExitSuccess
     Left e -> do

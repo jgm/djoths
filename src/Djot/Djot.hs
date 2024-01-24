@@ -5,10 +5,12 @@
 {-# LANGUAGE StrictData #-}
 module Djot.Djot
   ( renderDjot
+  , RenderOptions(..)
   )
 where
 
 import Djot.AST
+import Djot.Options (RenderOptions(..))
 import Data.Char (ord, chr)
 import Djot.FlatParse (utf8ToStr)
 import Data.ByteString (ByteString)
@@ -28,8 +30,9 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.IntMap.Strict as IntMap
 
-renderDjot :: Doc -> Layout.Doc Text
-renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
+renderDjot :: RenderOptions -> Doc -> Layout.Doc Text
+renderDjot opts doc = evalState
+                           (do body <- toLayout (docBlocks doc)
                                refs <- gets referenceMap >>= toReferences
                                notes <- toNotes
                                pure $ body $$ refs $$ notes <> cr)
@@ -47,6 +50,7 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                   ,(ord '"', 0)
                                   ,(ord '^', 0)]
                                , lastBullet = Nothing
+                               , options = opts
                                }
 
 data BState =
@@ -56,6 +60,7 @@ data BState =
          , afterSpace :: Bool
          , nestings :: IntMap.IntMap Int
          , lastBullet :: Maybe Char
+         , options :: RenderOptions
          }
 
 toReferences :: ReferenceMap -> State BState (Layout.Doc Text)

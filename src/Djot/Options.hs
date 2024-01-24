@@ -1,9 +1,15 @@
 {-# LANGUAGE StrictData #-}
 module Djot.Options
-( ParseOptions(..) )
+( ParseOptions(..)
+, RenderOptions(..) )
 where
 
 data ParseOptions =
   ParseOptions
---  { optSourcePositions :: Bool }
+--  { sourcePositions :: Bool }
+  deriving (Show)
+
+data RenderOptions =
+  RenderOptions
+  { preserveSoftBreaks :: Bool }
   deriving (Show)
