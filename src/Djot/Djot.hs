@@ -346,7 +346,9 @@ instance ToLayout (Node Inline) where
                         -> afterBreak "{}" <> space <> literal rest
                       _ -> literal ch
             pure $ hcat $ map toChunk chunks
-          SoftBreak -> pure cr
+          SoftBreak -> do
+            opts <- gets options
+            pure $ if preserveSoftBreaks opts then cr else space
           HardBreak -> pure (literal "\\" <> cr)
           NonBreakingSpace -> pure "\\ "
           Emph ils -> surround '_' ils

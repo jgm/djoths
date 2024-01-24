@@ -241,7 +241,9 @@ instance ToBuilder (Node Inline) where
       Str bs -> case attr of
                    Attr [] -> pure $ escapeHtml bs
                    _ -> pure $ inTags "span" attr $ escapeHtml bs
-      SoftBreak -> pure $ word8 10
+      SoftBreak -> do
+        opts <- gets options
+        pure $ word8 $ if preserveSoftBreaks opts then 10 else 32
       HardBreak -> pure $ singleTag "br" attr <> "\n"
       NonBreakingSpace -> pure $ byteString "&nbsp;"
       Emph ils -> inTags "em" attr <$> toBuilder ils
