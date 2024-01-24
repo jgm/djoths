@@ -217,6 +217,13 @@ data Doc =
      , docReferences :: ReferenceMap
      } deriving (Show, Ord, Eq, Typeable, Generic)
 
+instance Semigroup Doc where
+  Doc bs ns rs <> Doc bs' ns' rs' = Doc (bs <> bs') (ns <> ns') (rs <> rs')
+
+instance Monoid Doc where
+  mappend = (<>)
+  mempty = Doc mempty mempty mempty
+
 -- | A map from labels to contents.
 newtype NoteMap = NoteMap { unNoteMap :: M.Map ByteString Blocks }
   deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
