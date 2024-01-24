@@ -337,7 +337,8 @@ instance ToLayout (Node Inline) where
                    (fixSmart $ escapeDjot Normal bs)
             let toChunk ch
                   = case T.uncons ch of
-                      Just (' ', rest) -> space <> literal rest
+                      Just (' ', rest)
+                        -> afterBreak "{}" <> space <> literal rest
                       _ -> literal ch
             pure $ hcat $ map toChunk chunks
           SoftBreak -> pure cr
