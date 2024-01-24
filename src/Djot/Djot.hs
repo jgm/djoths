@@ -438,7 +438,6 @@ isWhite _ = False
 
 surround :: Char -> Inlines -> State BState (Layout.Doc Text)
 surround c ils = do
-  startAfterSpace <- gets afterSpace
   let startBeforeSpace =
         case Seq.viewl (unMany ils) of
                 Node _ (Str bs) Seq.:< _ ->
@@ -452,9 +451,8 @@ surround c ils = do
   nestingLevel <- gets (fromMaybe 1 . IntMap.lookup (ord c) . nestings)
   let core = char c <> contents <> char c
   pure $
-    if nestingLevel == 0 &&
-         startAfterSpace &&
-         not (startBeforeSpace || endAfterSpace)
+    if nestingLevel == 0 && not (startBeforeSpace || endAfterSpace) &&
+         not (null ils)
        then core
        else char '{' <> core <> char '}'
 
