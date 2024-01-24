@@ -167,13 +167,8 @@ pSpecial = do
      else pure $ str $ strToUtf8 [c]
 
 pWords :: P Inlines
-pWords = do
-  res <- byteStringOf (skipSome (skipSatisfyAscii' (not . isSpecial)))
-  try (do asciiChar' '\\'
-          brk <- pHardBreak
-          pure (str (B8.dropWhileEnd (\c -> c == ' ' || c == '\t') res)
-                 <> brk))
-    <|> pure (str res)
+pWords =
+  str <$> byteStringOf (skipSome (skipSatisfyAscii' (not . isSpecial)))
 
 pEscaped :: P Inlines
 pEscaped = do

@@ -164,7 +164,15 @@ instance Semigroup Inlines where
       (as' Seq.:> Node attr (Str s), Node attr' (Str t) Seq.:< bs')
         | attr == attr'
           -> Many (as' <> (Node attr (Str (s <> t)) Seq.<| bs'))
+      (as' Seq.:> Node attr (Str s), Node _ HardBreak Seq.:< _)
+        | B8.all isSpaceOrTab (B8.takeEnd 1 s)
+          -> Many (as' <> (Node attr (Str (B8.dropWhileEnd isSpaceOrTab s))
+                            Seq.<| bs))
       _ -> Many (as <> bs)
+    where
+      isSpaceOrTab ' ' = True
+      isSpaceOrTab '\t' = True
+      isSpaceOrTab _ = False
 
 instance Monoid Inlines where
   mappend = (<>)
