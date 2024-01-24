@@ -1017,7 +1017,8 @@ closeInappropriateContainers spec = do
 {-# INLINE pLine #-}
 pLine :: P s ByteString
 pLine = byteStringOf $
-  (skipSome (skipSatisfy' (\c -> c /= '\n' && c /= '\r')) <* optional_ endline)
+  (skipSome (skipSatisfyAscii (\c -> c /= '\n' && c /= '\r'))
+       <* optional_ endline)
     <|> endline
 
 {-# INLINE pBlankLine #-}
