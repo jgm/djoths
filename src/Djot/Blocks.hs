@@ -874,7 +874,7 @@ pDoc = do
             , docReferences = refmap }
 
 pBlocks :: P s Blocks
-pBlocks = processLines >> finalizeDocument
+pBlocks = skipMany processLine >> finalizeDocument
 
 incrementCurrentLine :: P s ()
 incrementCurrentLine = do
@@ -893,9 +893,7 @@ checkContinuations = go . reverse . NonEmpty.toList
                      else False <$ -- close len (c:cs) containers
                           replicateM_ (length (c:cs)) closeCurrentContainer
 
-processLines :: P s ()
-processLines = skipMany processLine
-
+{-# INLINE processLine #-}
 processLine :: P s ()
 processLine = do
   incrementCurrentLine
@@ -964,6 +962,7 @@ finalizeDocument = do
     c :| [] -> pure $ finalize c
     _ -> closeCurrentContainer >> finalizeDocument
 
+{-# INLINE closeCurrentContainer #-}
 -- | Close container and add to parent container.
 closeCurrentContainer :: P s ()
 closeCurrentContainer = do
@@ -985,11 +984,13 @@ closeCurrentContainer = do
                         c{ containerEndLine = curline - 1 } } :| rest }
     _ :| [] -> err "Attempted to close root document container"
 
+{-# INLINE modifyContainers #-}
 modifyContainers :: (NonEmpty (Container s)
                  -> NonEmpty (Container s)) -> P s ()
 modifyContainers f =
   modifyP $ \st -> st{ psContainerStack = f (psContainerStack st) }
 
+{-# INLINE addContainer #-}
 addContainer :: Typeable a => BlockSpec s -> a -> P s ()
 addContainer bspec bdata = do
   curline <- getsP psCurrentLine

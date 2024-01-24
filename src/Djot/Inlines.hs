@@ -235,6 +235,7 @@ pMath = try $ do
 -- 18  set if parsing inside '['
 -- 19  set if opener had '{'
 
+{-# INLINE bracesRequired #-}
 bracesRequired :: Char -> Bool
 bracesRequired '=' = True
 bracesRequired '+' = True
