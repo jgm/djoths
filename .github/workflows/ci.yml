@@ -1,7 +1,6 @@
 name: CI tests
 
-# later add push
-on: [pull_request]
+on: [push, pull_request]
 
 jobs:
   linux:
