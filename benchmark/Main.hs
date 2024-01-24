@@ -18,15 +18,15 @@ main = do
   files <- mapM (\fn -> (fn,) <$> B.readFile ("benchmark" </> fn)) fns
   defaultMain $
    map (\(fn, bs) ->
-     bench ("parse " <> fn) $ whnf (parseDoc ParseOptions{ optSourcePositions = False }) bs)
+     bench ("parse " <> fn) $ whnf (parseDoc ParseOptions) bs)
      files
    ++
    map (\(fn, bs) ->
-     let doc = either error id $ parseDoc ParseOptions{ optSourcePositions = False } bs
+     let doc = either error id $ parseDoc ParseOptions bs
      in bench ("renderHtml " <> fn) $ nf (BL.toStrict . toLazyByteString . renderHtml) doc)
      files
    ++
    map (\(fn, bs) ->
-     let doc = either error id $ parseDoc ParseOptions{ optSourcePositions = False } bs
+     let doc = either error id $ parseDoc ParseOptions bs
      in bench ("renderDjot " <> fn) $ nf (render (Just 72) . renderDjot) doc)
      files

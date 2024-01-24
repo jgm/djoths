@@ -5,5 +5,5 @@ where
 
 data ParseOptions =
   ParseOptions
-  { optSourcePositions :: Bool }
+--  { optSourcePositions :: Bool }
   deriving (Show)

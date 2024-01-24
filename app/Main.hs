@@ -35,7 +35,7 @@ main = do
   bs <- case files opts of
           [] -> B.getContents
           fs  -> mconcat <$> mapM B.readFile fs
-  let popts = ParseOptions{ optSourcePositions = False }
+  let popts = ParseOptions
   case parseDoc popts bs of
     Right doc -> do
       case format opts of

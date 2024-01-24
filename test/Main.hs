@@ -20,7 +20,7 @@ main = do
   specTests <- filter ((== ".test") . takeExtension) <$>
                   getDirectoryContents "test"
   tests <- mapM (\fp -> (fp,) <$> getSpecTests ("test" </> fp)) specTests
-  let parser = parseDoc ParseOptions{ optSourcePositions = False } . BL.toStrict
+  let parser = parseDoc ParseOptions . BL.toStrict
   defaultMain $ testGroup "Tests" $
     [ testGroup "djot -> html"
         (map (\(fp, ts) ->
