@@ -57,7 +57,7 @@ parseTableCells inp = do
     Err e -> Left e
 
 removeFinalWs :: Inlines -> Inlines
-removeFinalWs (Inlines ils) = Inlines $
+removeFinalWs (Many ils) = Many $
   case Seq.viewr ils of
     rest Seq.:> Node attr (Str bs)
       | B8.takeEnd 1 bs == " "
@@ -83,7 +83,7 @@ pInlines = skipMany ws *> (consolidate . mconcat <$> many pInline)
 -- so that only the "x" gets following attributes.
 -- e.g.  *x{.foo}
 consolidate :: Inlines -> Inlines
-consolidate (Inlines ils') = Inlines (foldl' go mempty ils')
+consolidate (Many ils') = Many (foldl' go mempty ils')
  where
    go ils il@(Node attr (Str s)) =
      case Seq.viewr ils of
@@ -101,24 +101,24 @@ pInline :: P Inlines
 pInline = pInline' >>= pOptionalAttributes
 
 pOptionalAttributes :: Inlines -> P Inlines
-pOptionalAttributes (Inlines ils) =
+pOptionalAttributes (Many ils) =
  (lookahead (asciiChar' '{') *> do
   attr <- mconcat <$> some pAttributes
   case attr of
-    Attr [] -> pure (Inlines ils)
+    Attr [] -> pure (Many ils)
     _ -> case Seq.viewr ils of
            Seq.EmptyR -> pure mempty
            ils' Seq.:> Node attr' (Str bs) ->
              -- attach attribute to last word
              let (front, lastword) = B8.breakEnd isWs bs
              in if B.null lastword
-                   then pure (Inlines ils)
-                   else pure $ Inlines (ils' Seq.|>
+                   then pure (Many ils)
+                   else pure $ Many (ils' Seq.|>
                                    Node attr' (Str front) Seq.|>
                                    Node attr (Str lastword))
            ils' Seq.:> Node attr' il ->
-             pure $ Inlines (ils' Seq.|> Node (attr' <> attr) il))
-  <|> pure (Inlines ils)
+             pure $ Many (ils' Seq.|> Node (attr' <> attr) il))
+  <|> pure (Many ils)
 
 pInline' :: P Inlines
 pInline' = do
@@ -218,9 +218,9 @@ pMath = try $ do
   asciiChar' '$'
   mathStyle <- (DisplayMath <$ asciiChar' '$') <|> pure InlineMath
   verb <- pVerbatim
-  case unInlines verb of
+  case unMany verb of
          [Node attr (Verbatim bs)] ->
-              pure $ Inlines $ Seq.singleton $ Node attr (Math mathStyle bs)
+              pure $ Many $ Seq.singleton $ Node attr (Math mathStyle bs)
          _ -> pure $ (case mathStyle of
                         DisplayMath -> str "$$"
                         _ -> str "$") <> verb

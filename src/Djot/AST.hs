@@ -1,17 +1,20 @@
 {-# LANGUAGE Strict #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Djot.AST
 ( Inline(..),
-  Inlines(..),
+  Many(..),
+  Inlines,
   MathStyle(..),
   Format(..),
   Node(Node),
   addAttr,
   Block(..),
-  Blocks(..),
+  Blocks,
   Doc(..),
   NoteMap(..),
   insertNote,
@@ -104,12 +107,12 @@ integrate (k,v) kvs =
       | otherwise -> kvs
 
 data Node a = Node Attr a
-  deriving (Show, Eq, Ord, Typeable, Generic)
+  deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
 
 {-# INLINE addAttr #-}
-addAttr :: Attr -> Blocks -> Blocks
-addAttr attr (Blocks nodes) =
-  Blocks (fmap (\(Node attr' bs) -> Node (attr' <> attr) bs) nodes)
+addAttr :: Functor f => Attr -> f (Node a) -> f (Node a)
+addAttr attr nodes =
+  fmap (\(Node attr' bs) -> Node (attr' <> attr) bs) nodes
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
@@ -150,20 +153,22 @@ data Inline =
     | HardBreak
     deriving (Show, Ord, Eq, Typeable, Generic)
 
-newtype Inlines = Inlines { unInlines :: Seq (Node Inline) }
-  deriving (Show, Eq, Ord, Typeable, Generic)
+newtype Many a = Many { unMany :: Seq a }
+  deriving (Show, Ord, Eq, Functor, Traversable, Foldable, Typeable, Generic)
+
+type Inlines = Many (Node Inline)
 
 instance Semigroup Inlines where
-  Inlines as <> Inlines bs =
+  Many as <> Many bs =
     case (Seq.viewr as, Seq.viewl bs) of
       (as' Seq.:> Node attr (Str s), Node attr' (Str t) Seq.:< bs')
         | attr == attr'
-          -> Inlines (as' <> (Node attr (Str (s <> t)) Seq.<| bs'))
-      _ -> Inlines (as <> bs)
+          -> Many (as' <> (Node attr (Str (s <> t)) Seq.<| bs'))
+      _ -> Many (as <> bs)
 
 instance Monoid Inlines where
   mappend = (<>)
-  mempty = Inlines mempty
+  mempty = Many mempty
 
 data ListSpacing = Tight | Loose
   deriving (Show, Ord, Eq, Typeable, Generic)
@@ -214,8 +219,14 @@ data Block =
   | RawBlock Format ByteString
   deriving (Show, Ord, Eq, Typeable, Generic)
 
-newtype Blocks = Blocks { unBlocks :: Seq (Node Block) }
-  deriving (Show, Semigroup, Monoid, Ord, Eq, Typeable, Generic)
+type Blocks = Many (Node Block)
+
+instance Semigroup Blocks where
+  Many as <> Many bs = Many (as <> bs)
+
+instance Monoid Blocks where
+  mappend = (<>)
+  mempty = Many mempty
 
 data Doc =
   Doc{ docBlocks :: Blocks
@@ -260,7 +271,7 @@ lookupReference label (ReferenceMap rm) =
 
 {-# INLINE inline #-}
 inline :: Inline -> Inlines
-inline = Inlines . Seq.singleton . Node mempty
+inline = Many . Seq.singleton . Node mempty
 
 str, verbatim, symbol :: ByteString -> Inlines
 str = inline . Str
@@ -312,7 +323,7 @@ rawInline f = inline . RawInline f
 --
 
 block :: Block -> Blocks
-block = Blocks . Seq.singleton . Node mempty
+block = Many . Seq.singleton . Node mempty
 
 para :: Inlines -> Blocks
 para = block . Para
@@ -354,7 +365,7 @@ rawBlock :: Format -> ByteString -> Blocks
 rawBlock f = block . RawBlock f
 
 inlinesToByteString :: Inlines -> ByteString
-inlinesToByteString = foldMap go . unInlines
+inlinesToByteString = foldMap go . unMany
  where
   go (Node _attr x) =
       case x of

@@ -125,10 +125,10 @@ class ToLayout a where
   toLayout :: a -> State BState (Layout.Doc Text)
 
 instance ToLayout Inlines where
-  toLayout = fmap F.fold . mapM toLayout . unInlines
+  toLayout = fmap F.fold . mapM toLayout . unMany
 
 instance ToLayout Blocks where
-  toLayout = fmap F.fold . mapM toLayout . unBlocks
+  toLayout = fmap F.fold . mapM toLayout . unMany
 
 instance ToLayout Attr where
   toLayout (Attr kvs)
@@ -426,7 +426,7 @@ surround :: Char -> Inlines -> State BState (Layout.Doc Text)
 surround c ils = do
   startAfterSpace <- gets afterSpace
   let startBeforeSpace =
-        case Seq.viewl (unInlines ils) of
+        case Seq.viewl (unMany ils) of
                 Node _ (Str bs) Seq.:< _ ->
                     isWhite (B8.take 1 bs)
                 _ -> False
@@ -449,8 +449,8 @@ toNoteRef bs = literal ("[^" <> fromUtf8 bs <> "]")
 
 computeDivNestingLevel :: Blocks -> Int
 computeDivNestingLevel =
-  foldr go 0 . unBlocks
+  foldr go 0 . unMany
  where
    go (Node _ (Div bls')) n =
-     max (n + 1) (foldr go (n + 1) (unBlocks bls'))
+     max (n + 1) (foldr go (n + 1) (unMany bls'))
    go _ n = n

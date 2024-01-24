@@ -51,14 +51,14 @@ toNotes = do
              <> "\n"
 
 addBackref :: ByteString -> Blocks -> Blocks
-addBackref num (Blocks bls) =
-    Blocks $
+addBackref num (Many bls) =
+    Many $
       case Seq.viewr bls of
           rest Seq.:> Node attr (Para ils) ->
             rest Seq.|> Node attr (Para (ils <> backlink))
           _ -> bls Seq.|> Node mempty (Para backlink)
  where
-   backlink = Inlines $ Seq.singleton $
+   backlink = Many $ Seq.singleton $
                Node (Attr [("role", "doc-backlink")])
                  (Link (str (strToUtf8 "\8617\65038"))
                  (Direct ("#fnref" <> num)))
@@ -103,10 +103,10 @@ class ToBuilder a where
   toBuilder :: a -> State BState Builder
 
 instance ToBuilder Inlines where
-  toBuilder = fmap F.fold . mapM toBuilder . unInlines
+  toBuilder = fmap F.fold . mapM toBuilder . unMany
 
 instance ToBuilder Blocks where
-  toBuilder = fmap F.fold . mapM toBuilder . unBlocks
+  toBuilder = fmap F.fold . mapM toBuilder . unMany
 
 instance ToBuilder (Node Block) where
   toBuilder (Node attr bl) =
@@ -169,7 +169,7 @@ instance ToBuilder (Node Block) where
                    Nothing -> pure mempty
                    Just (Caption bs) ->
                      addNl . inTags "caption" mempty
-                       <$> case F.toList (unBlocks bs) of
+                       <$> case F.toList (unMany bs) of
                               [Node at (Para ils)] | at == mempty
                                  -> toBuilder ils
                               _ -> ("\n" <>) <$> toBuilder bs
@@ -195,7 +195,7 @@ toCell (Cell cellType align ils) =
 
 
 toItemContents :: ListSpacing -> Blocks -> State BState Builder
-toItemContents listSpacing = fmap F.fold . mapM go . unBlocks
+toItemContents listSpacing = fmap F.fold . mapM go . unMany
  where
    go (Node attr bl) =
     case bl of
@@ -209,9 +209,9 @@ toItemContents listSpacing = fmap F.fold . mapM go . unBlocks
 
 toTaskListItem :: ListSpacing -> (TaskStatus, Blocks) -> State BState Builder
 toTaskListItem listSpacing (status, bs) = do
-  body <- case Seq.viewl $ unBlocks bs of
+  body <- case Seq.viewl $ unMany bs of
             Node attr (Para ils) Seq.:< rest ->
-              toItemContents listSpacing (Blocks
+              toItemContents listSpacing (Many
                 (Node attr
                  (Para (rawInline (Format "html") ("<label>" <> input) <>
                          ils <>
