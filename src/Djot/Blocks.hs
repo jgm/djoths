@@ -1023,11 +1023,6 @@ pLine = byteStringOf $
 pBlankLine :: P s ()
 pBlankLine = skipMany spaceOrTab *> (endline <|> eof)
 
-{-# INLINE addAttr #-}
-addAttr :: Attr -> Blocks -> Blocks
-addAttr attr (Blocks nodes) =
-  Blocks (fmap (\(Node attr' bs) -> Node (attr' <> attr) bs) nodes)
-
 finalize :: Container s -> Blocks
 finalize cont =
   addAttr (containerAttr cont) $ blockFinalize (containerSpec cont) cont

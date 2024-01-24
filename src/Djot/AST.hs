@@ -9,6 +9,7 @@ module Djot.AST
   MathStyle(..),
   Format(..),
   Node(Node),
+  addAttr,
   Block(..),
   Blocks(..),
   Doc(..),
@@ -104,6 +105,11 @@ integrate (k,v) kvs =
 
 data Node a = Node Attr a
   deriving (Show, Eq, Ord, Typeable, Generic)
+
+{-# INLINE addAttr #-}
+addAttr :: Attr -> Blocks -> Blocks
+addAttr attr (Blocks nodes) =
+  Blocks (fmap (\(Node attr' bs) -> Node (attr' <> attr) bs) nodes)
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
