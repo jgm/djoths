@@ -145,7 +145,19 @@ data Inline =
     deriving (Show, Ord, Eq, Typeable, Generic)
 
 newtype Inlines = Inlines { unInlines :: Seq (Node Inline) }
-  deriving (Show, Semigroup, Monoid, Eq, Ord, Typeable, Generic)
+  deriving (Show, Eq, Ord, Typeable, Generic)
+
+instance Semigroup Inlines where
+  Inlines as <> Inlines bs =
+    case (Seq.viewr as, Seq.viewl bs) of
+      (as' Seq.:> Node attr (Str s), Node attr' (Str t) Seq.:< bs')
+        | attr == attr'
+          -> Inlines (as' <> (Node attr (Str (s <> t)) Seq.<| bs'))
+      _ -> Inlines (as <> bs)
+
+instance Monoid Inlines where
+  mappend = (<>)
+  mempty = Inlines mempty
 
 data ListSpacing = Tight | Loose
   deriving (Show, Ord, Eq, Typeable, Generic)
