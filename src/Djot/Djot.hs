@@ -46,6 +46,7 @@ renderDjot doc = evalState (do body <- toLayout (docBlocks doc)
                                   ,(ord '\'', 0)
                                   ,(ord '"', 0)
                                   ,(ord '^', 0)]
+                               , lastBullet = Nothing
                                }
 
 data BState =
@@ -54,6 +55,7 @@ data BState =
          , referenceMap :: ReferenceMap
          , afterSpace :: Bool
          , nestings :: IntMap.IntMap Int
+         , lastBullet :: Maybe Char
          }
 
 toReferences :: ReferenceMap -> State BState (Layout.Doc Text)
@@ -159,11 +161,16 @@ instance ToLayout (Node Block) where
                  pure $ literal (T.replicate lev "#") <+> contents
                Section bls -> ($$ blankline) <$> toLayout bls
                ThematicBreak -> pure $ literal "* * * *"
-               BulletList listSpacing items ->
+               BulletList listSpacing items -> do
+                 lastb <- gets lastBullet
+                 let bullet = case lastb of
+                                Just '+' -> "-"
+                                Just '-' -> "+"
+                                _ -> "-"
                  (case listSpacing of
                     Tight -> vcat . map chomp
                     Loose -> vsep) <$>
-                 mapM (fmap (hang 2 ("-" <> space)) . toLayout) items
+                   mapM (fmap (hang 2 (bullet <> space)) . toLayout) items
                OrderedList listAttr listSpacing items ->
                  (case listSpacing of
                     Tight -> vcat . map chomp
@@ -213,7 +220,17 @@ instance ToLayout (Node Block) where
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs)
                RawBlock _ _ -> pure mempty)
-         <* modify' (\st -> st{ afterSpace = True })
+         <* modify' (\st -> st{ afterSpace = True
+                              -- Handle case of one bullet list right after
+                              -- another; we need to change the bullet to
+                              -- start a new list:
+                              , lastBullet = case bl of
+                                               BulletList{} ->
+                                                 case lastBullet st of
+                                                   Just '-' -> Just '+'
+                                                   Just '+' -> Just '-'
+                                                   _ -> Just '-'
+                                               _ -> Nothing })
 
 toTable :: [[Cell]] -> State BState (Layout.Doc Text)
 toTable [] = pure "|--|" -- minimal empty table
