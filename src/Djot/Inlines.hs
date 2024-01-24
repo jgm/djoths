@@ -88,9 +88,12 @@ consolidate (Inlines ils') = Inlines (foldl' go mempty ils')
    go ils il@(Node attr (Str s)) =
      case Seq.viewr ils of
               start Seq.:> Node (Attr []) (Str s')
-                | not (B8.null s')
-                , not (isWs (B8.last s'))
-                -> start Seq.|> Node attr (Str (s' <> s))
+                | (sa, sb) <- B8.spanEnd (not . isWs) s'
+                , not (B8.null sb)
+                -> if B8.null sa
+                      then start Seq.|> Node attr (Str (sb <> s))
+                      else start Seq.|> Node (Attr []) (Str sa)
+                                 Seq.|> Node attr (Str (sb <> s))
               _ -> ils Seq.|> il
    go ils il = ils Seq.|> il
 
