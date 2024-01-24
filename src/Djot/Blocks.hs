@@ -937,21 +937,22 @@ tryContainerStarts = do
   (c :| _) <- getsP psContainerStack
   case blockContainsBlock (containerSpec c) of
     Just bt -> (do
-      skipMany spaceOrTab
       nextc <- lookahead anyChar
-      msum $ map blockStart $
-               case nextc of
-                  '>' -> [blockQuoteSpec]
-                  '#' -> [headingSpec]
-                  ':' -> [divSpec, listItemSpec]
-                  '*' -> [thematicBreakSpec, listItemSpec]
-                  '-' -> [thematicBreakSpec, listItemSpec]
-                  '`' -> [codeBlockSpec]
-                  '{' -> [attrSpec]
-                  '[' -> [referenceDefinitionSpec, footnoteSpec]
-                  '|' | bt == Normal -> [tableSpec]
-                  '^' | bt == CaptionBlock -> [captionSpec]
-                  _ -> [listItemSpec]
+      next <- if nextc == ' ' || nextc == '\t'
+                 then skipMany spaceOrTab *> lookahead anyChar
+                 else pure nextc
+      case next of
+        '>' -> blockStart blockQuoteSpec
+        '#' -> blockStart headingSpec
+        ':' -> blockStart divSpec <|> blockStart listItemSpec
+        '*' -> blockStart thematicBreakSpec <|> blockStart listItemSpec
+        '-' -> blockStart thematicBreakSpec <|> blockStart listItemSpec
+        '`' -> blockStart codeBlockSpec
+        '{' -> blockStart attrSpec
+        '[' -> blockStart referenceDefinitionSpec <|> blockStart footnoteSpec
+        '|' | bt == Normal -> blockStart tableSpec
+        '^' | bt == CaptionBlock -> blockStart captionSpec
+        _ -> blockStart listItemSpec
       True <$ tryContainerStarts) <|> pure False
     _ -> pure False
 
