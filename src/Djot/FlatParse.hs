@@ -54,6 +54,7 @@ updateState c = do
       _    | testBit i 8 -> setBit i 9
            | otherwise   -> setBit (i + 1) 9
 
+{-# INLINE isWs #-}
 isWs :: Char -> Bool
 isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 
