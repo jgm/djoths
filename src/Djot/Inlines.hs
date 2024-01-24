@@ -168,7 +168,7 @@ pSpecial = do
 
 pWords :: P Inlines
 pWords = do
-  res <- byteStringOf (skipSome (skipSatisfy' (not . isSpecial)))
+  res <- byteStringOf (skipSome (skipSatisfyAscii' (not . isSpecial)))
   try (do asciiChar' '\\'
           brk <- pHardBreak
           pure (str (B8.dropWhileEnd (\c -> c == ' ' || c == '\t') res)
@@ -207,7 +207,7 @@ pSoftBreak = do
 pSymbol :: P Inlines
 pSymbol = try $ do
   asciiChar' ':'
-  bs <- byteStringOf $ skipSome (satisfyAscii'
+  bs <- byteStringOf $ skipSome (skipSatisfyAscii'
                                     (\c -> c == '+' || c == '-' ||
                                          (isAscii c && isAlphaNum c)))
   asciiChar' ':'
@@ -329,7 +329,7 @@ pVerbatim = do
   let ender = try $ do
          n <- pTicks
          unless (n == numticks) failed
-  let content = skipSome (skipSatisfy (\c -> c /= '`' && c /= '\\')) <|>
+  let content = skipSome (skipSatisfyAscii' (\c -> c /= '`' && c /= '\\')) <|>
                  try (asciiChar' '\\' <* anyChar) <|>
                  (fails ender *> skipSome (asciiChar' '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
@@ -357,7 +357,7 @@ pRawAttribute :: P Format
 pRawAttribute = try $ do
   byteString "{="
   fmt <- Format <$>
-             byteStringOf (skipMany (skipSatisfy' (\c -> c /= '}' &&
+             byteStringOf (skipMany (skipSatisfyAscii' (\c -> c /= '}' &&
                                                  not (isWs c))))
   asciiChar' '}'
   pure fmt
@@ -366,7 +366,8 @@ pFootnoteReference :: P Inlines
 pFootnoteReference = try $ do
   asciiChar' '['
   asciiChar' '^'
-  label <- byteStringOf $ skipMany $ skipSatisfy' (\c -> c /= ']' && not (isWs c))
+  label <- byteStringOf $ skipMany $
+             skipSatisfyAscii' (\c -> c /= ']' && not (isWs c))
   asciiChar' ']'
   pure $ footnoteReference label
 
@@ -399,7 +400,7 @@ pImage = do
 pAutolink :: P Inlines
 pAutolink = try $ do
   asciiChar' '<'
-  res <- byteStringOf $ skipSome $ skipSatisfy' (\c -> c /= '>' && c /= '<')
+  res <- byteStringOf $ skipSome $ skipSatisfyAscii' (\c -> c /= '>' && c /= '<')
   asciiChar' '>'
   let url = B8.filter (\c -> c /= '\n' && c /= '\r') res
   case B8.find (\c -> c == '@' || c == ':' || c == '.') url of
@@ -437,7 +438,8 @@ pInBalancedParens nestlevel =
   (guard (nestlevel == 0) <* lookahead (asciiChar' ')')) <|>
     do lev <-   (nestlevel <$ (fails pCloser *>
                                -- but see https://github.com/jgm/djot/discussions/247
-                               skipSatisfy' (\c -> c /= '(' && c /= ')' && c /= '\\')))
+                               skipSatisfyAscii'
+                                 (\c -> c /= '(' && c /= ')' && c /= '\\')))
             <|> (nestlevel <$ (asciiChar' '\\' *> skipAnyChar))
             <|> ((nestlevel + 1) <$ asciiChar' '(')
             <|> ((nestlevel - 1) <$ asciiChar' ')')
@@ -446,7 +448,8 @@ pInBalancedParens nestlevel =
 pReference :: ByteString -> P Target
 pReference rawDescription = try $ do
   asciiChar' '['
-  bs <- byteStringOf $ pAtMost 400 $ skipSatisfy' (\c -> c /= '[' && c /= ']')
+  bs <- byteStringOf $ pAtMost 400 $ skipSatisfyAscii'
+           (\c -> c /= '[' && c /= ']')
   asciiChar' ']'
   let label = normalizeLabel $
               if B.null bs
