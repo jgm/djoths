@@ -257,7 +257,10 @@ toTable rows = do
           AlignRight -> rblock
           AlignCenter -> cblock
           AlignDefault -> lblock) width d
-  let mkRow sep ds = sep $ "|" : intersperse "|" ds ++ ["|"]
+  let mkRow ds = hcat $ vfill "| " : intersperse (vfill " | ") ds ++
+                           [vfill " |"]
+  let mkLines ds = hcat $ vfill "|" : intersperse (vfill "|") ds ++
+                             [vfill "|"]
   let toUnderline width ((_,al),_) = literal $
         case al of
            AlignLeft -> ":" <> T.replicate (width + 1) "-"
@@ -268,10 +271,10 @@ toTable rows = do
          let isHeader = case cells of
                           ((HeadCell,_),_) : _ -> True
                           _ -> False
-         in mkRow hsep (zipWith toCell colwidths cells)
+         in mkRow (zipWith toCell colwidths cells)
             $$
             if isHeader
-               then mkRow hcat (zipWith toUnderline colwidths cells)
+               then mkLines (zipWith toUnderline colwidths cells)
                else mempty
   pure $ vcat $ map toRow rowContents
 
