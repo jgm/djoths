@@ -119,6 +119,9 @@ escapeDjot Normal bs
     case cs of
       '.':'.':_ -> '\\' : '.' : go cs
       _ -> '.' : go cs
+  go (c:':':' ':cs)
+    | escapable c = '\\' : c : ':' : ' ' : go cs
+    | otherwise = c : ':' : ' ' : go cs
   go (c:cs)
     | escapable c = '\\' : c : go cs
     | otherwise = c : go cs
