@@ -122,6 +122,7 @@ escapeDjot Normal bs
   go (c:':':' ':cs)
     | escapable c = '\\' : c : ':' : ' ' : go cs
     | otherwise = c : ':' : ' ' : go cs
+  go [':'] = [':']
   go (c:cs)
     | escapable c = '\\' : c : go cs
     | otherwise = c : go cs
