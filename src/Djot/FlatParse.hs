@@ -125,4 +125,4 @@ restOfLine = do
     Nothing -> takeRest
     Just i -> do
       updateState '\n' -- reset indent, etc.
-      B8.take (i +1) bs <$ skip (i + 1)
+      FlatParse.Stateful.take (i + 1)
