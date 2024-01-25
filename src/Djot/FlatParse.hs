@@ -14,13 +14,17 @@ module Djot.FlatParse
   afterWs,
   lastChar,
   getIndent,
+  restOfLine,
   module FlatParse.Stateful
 )
 where
 
 import FlatParse.Stateful hiding (Span)
 import Data.Bits
+import Control.Monad (guard)
 import Data.Char (ord, chr)
+import qualified Data.ByteString.Char8 as B8
+import Data.ByteString (ByteString)
 
 -- We use the Stateful parser, which gives us one Int of state
 -- We use this Int as follows:
@@ -111,3 +115,14 @@ char' c = skipSatisfy' (== c)
 {-# INLINE asciiChar' #-}
 asciiChar' :: Char -> ParserT st r e ()
 asciiChar' c = skipSatisfyAscii' (== c)
+
+{-# INLINE restOfLine #-}
+restOfLine :: ParserT st r e ByteString
+restOfLine = do
+  bs <- lookahead takeRest
+  guard $ not $ B8.null bs
+  case B8.findIndex (== '\n') bs of
+    Nothing -> takeRest
+    Just i -> do
+      updateState '\n' -- reset indent, etc.
+      B8.take (i +1) bs <$ skip (i + 1)

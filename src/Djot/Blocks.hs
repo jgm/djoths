@@ -523,7 +523,7 @@ pTableSeps = many pTableSep <* eof
 pRawTableRow :: P s ()
 pRawTableRow = try $ do
   lookahead $ asciiChar' '|'
-  pLine >>= void . parseTableRow ([],[]) . B8.strip
+  restOfLine >>= void . parseTableRow ([],[]) . B8.strip
 
 captionSpec :: BlockSpec s
 captionSpec =
@@ -921,12 +921,12 @@ processLine = do
       skipMany spaceOrTab
       blockStart paraSpec
 
-  restOfLine <- pLine
+  restline <- restOfLine
   -- if current container is a line container, add remainder of line
   modifyContainers $
     \(c :| rest) ->
        if blockContainsLines (containerSpec c)
-          then c{ containerText = containerText c Seq.|> restOfLine } :| rest
+          then c{ containerText = containerText c Seq.|> restline } :| rest
           else c :| rest
 
 -- True if new container was started
@@ -1014,15 +1014,6 @@ closeInappropriateContainers spec = do
               pure ()
       | otherwise -> closeCurrentContainer *> closeInappropriateContainers spec
 
-
-{-# INLINE pLine #-}
-pLine :: P s ByteString
-pLine = byteStringOf $
-  -- we can use skipSatisfyAscii (without ') because we no longer
-  -- need to track indentation:
-  (skipSome (skipSatisfyAscii (\c -> c /= '\n' && c /= '\r'))
-       <* optional_ endline)
-    <|> endline
 
 {-# INLINE pBlankLine #-}
 pBlankLine :: P s ()
