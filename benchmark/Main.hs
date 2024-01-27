@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE Strict #-}
 import Test.Tasty.Bench
 import Data.Functor.Identity  -- base >= 4.8
 import qualified Data.ByteString as B
