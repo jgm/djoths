@@ -4,7 +4,8 @@ version:            0.1.0.0
 synopsis:           Parser and renderer for djot light markup syntax.
 description:        Djot (<https://djot.net>) is a light markup language.
                     This package provides a data structure to represent
-                    djot documents, a very fast parser, and a renderer.
+                    djot documents, a very fast parser, and functions
+                    to render a parsed document as HTML and as djot.
 license:            MIT
 license-file:       LICENSE
 author:             John MacFarlane
