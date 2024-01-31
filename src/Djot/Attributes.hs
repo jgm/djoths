@@ -29,7 +29,7 @@ data AttrParseResult =
     Done (Attr, Int) -- result and byte offset
   | Failed Int -- byte offset of failure
   | Partial AttrParserState -- entire bytestring consumed
-  deriving (Typeable)
+  deriving (Show, Typeable)
 
 data AttrParserState =
   AttrParserState
@@ -37,10 +37,11 @@ data AttrParserState =
   , subject :: ByteString
   , offset :: Int
   , parts :: [AttrPart] }
-  deriving (Typeable)
+  deriving (Show, Typeable)
 
 data AState =
     SCANNING
+  | AFTER_KEY
   | SCANNING_VALUE
   | SCANNING_QUOTED_VALUE
   | SCANNING_ESCAPE
@@ -79,57 +80,29 @@ parseAttributes mbState bs =
            case nextc of
              '}' -> go st{ aState = DONE, offset = off + 1 }
              '%' -> go st{ aState = SCANNING_COMMENT, offset = off + 1 }
-             '#' ->
-               if B8.null ident
-                  then go st{ aState = FAIL, offset = off + 1 }
-                  else go st{ offset = off + 1 + B8.length ident,
-                              parts = AttrId ident : parts st }
-               where
-                 ident = B8.takeWhile isNameChar (B8.drop (off + 1) subj)
-             '.' ->
-               if B8.null cls
-                  then go st{ aState = FAIL, offset = off + 1 }
-                  else go st{ offset = off + 1 + B8.length cls,
-                              parts = AttrClass cls : parts st }
-               where
-                 cls = B8.takeWhile isNameChar (B8.drop (off + 1) subj)
-             c | isKeyChar c ->
-               case subj !? (off + B8.length key) of
-                 Just '=' ->
-                    go st{ aState = SCANNING_VALUE, offset = off + 1 + B8.length key,
-                           parts = AttrKey key : parts st }
-                 _ -> st{ aState = FAIL }
-               where
-                 key = B8.takeWhile isKeyChar (B8.drop off subj)
-             c | isWs c ->
-                 case B8.findIndex (not . isWs) (B8.drop off subj) of
-                   Nothing -> go st{ offset = B8.length subj }
-                   Just i -> go st{ offset = off + i }
+             '#' -> go $ takePart isNameChar AttrId SCANNING st{ offset = off + 1 }
+             '.' -> go $ takePart isNameChar AttrClass SCANNING st{ offset = off + 1 }
+             c | isKeyChar c -> go $ takePart isKeyChar AttrKey AFTER_KEY st
+             c | isWs c -> go $ skipWhile isWs st
+             _ -> st{ aState = FAIL }
+         AFTER_KEY ->
+           case nextc of
+             '=' -> go st{ aState = SCANNING_VALUE, offset = off + 1 }
              _ -> st{ aState = FAIL }
          SCANNING_VALUE ->
            case nextc of
              '"' -> go st{ aState = SCANNING_QUOTED_VALUE, offset = off + 1 }
-             c | isBareValChar c ->
-                 go st{ aState = SCANNING, offset = off + B8.length val,
-                        parts = AttrValue val : parts st }
-               where
-                 val = B8.takeWhile isBareValChar (B8.drop off subj)
+             c | isBareValChar c -> go $ takePart isBareValChar AttrValue SCANNING st
              _ -> st{ aState = FAIL }
          SCANNING_QUOTED_VALUE ->
            case nextc of
              '"' -> go st{ aState = SCANNING, offset = off + 1 }
              '\\' -> go st{ aState = SCANNING_ESCAPE, offset = off + 1 }
              c | isWs c ->
-                 case B8.findIndex (not . isWs) (B8.drop off subj) of
-                   Nothing -> go st{ offset = off + B8.length subj }
-                   Just i -> go st{ offset = off + i,
-                                    parts = AttrValue " " : parts st }
-             _ -> go st{ offset = off + B8.length val
-                       , parts = AttrValue val : parts st }
-               where
-                 val = B8.takeWhile
-                        (\c -> not (isWs c || c == '"' || c == '\\'))
-                        (B8.drop off subj)
+                 let st' = skipWhile isWs st
+                   in go st'{ parts = AttrValue " " : parts st' }
+             _ -> go $ takePart (\c -> not (isWs c || c == '"' || c == '\\'))
+                        AttrValue SCANNING_QUOTED_VALUE st
          SCANNING_ESCAPE ->
            go st{ aState = SCANNING_QUOTED_VALUE, offset = off + 1,
                   parts = AttrValue (B8.singleton nextc) : parts st }
@@ -137,9 +110,7 @@ parseAttributes mbState bs =
            case nextc of
              '%' -> go st{ aState = SCANNING, offset = off + 1 }
              '}' -> st{ aState = DONE, offset = off + 1 }
-             _ -> case B8.findIndex (\c -> c == '%' || c == '}') (B8.drop off subj) of
-                    Nothing -> go st{ offset = B8.length subj }
-                    Just i -> go st{ offset = off + i }
+             _ -> go $ skipWhile (\c -> not (c == '%' || c == '}')) st
          FAIL -> st
          DONE -> st
          START ->
@@ -147,6 +118,22 @@ parseAttributes mbState bs =
              '{' -> go st{ aState = SCANNING, offset = off + 1 }
              _ -> st{ aState = FAIL }
 
+takePart :: (Char -> Bool) -> (ByteString -> AttrPart) -> AState ->
+            AttrParserState -> AttrParserState
+takePart charP partConstructor nextstate st =
+  case subject st !? offset st of
+    Just c | charP c ->
+      let val = B8.takeWhile charP (B8.drop (offset st) (subject st))
+      in  st{ aState = nextstate,
+              offset = offset st + B8.length val,
+              parts = partConstructor val : parts st }
+    _ -> st{ aState = FAIL }
+
+skipWhile :: (Char -> Bool) -> AttrParserState -> AttrParserState
+skipWhile charP st =
+  case B8.findIndex (not . charP) (B8.drop (offset st) (subject st)) of
+    Nothing -> st{ offset = B8.length (subject st) }
+    Just i -> st{ offset = offset st + i }
 
 
 --  attributes { id = "foo", class = "bar baz",
