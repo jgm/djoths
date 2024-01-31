@@ -1,33 +1,73 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 module Djot.Attributes
   ( pAttributes
+  , parseAttributes
+  , AttrParserState  -- opaque
+  , AttrParseResult(..)
   )
 where
 import Data.Char (isAlphaNum, isSpace, isPunctuation)
 import Djot.AST (Attr(..))
-import Djot.FlatParse
+import Djot.FlatParse (ParserT, takeRest, lookahead, skip, failed, isWs)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Char8 ( (!?) )
+import Data.Typeable (Typeable)
+import Data.Maybe (fromMaybe)
 -- import Debug.Trace
 
 pAttributes :: ParserT m s String Attr
 pAttributes = do
   bs <- lookahead takeRest
-  let endState = pAttrParts
-                 AttrParserState{ aState = START
-                                , subject = bs
-                                , offset = 0
-                                , parts = [] }
-  case aState endState of
-    DONE -> attrPartsToAttr (parts endState)
-               <$ skip (offset endState)
+  case parseAttributes Nothing bs of
+    Done (attr, off) -> attr <$ skip off
     _ -> failed
 
+data AttrParseResult =
+    Done (Attr, Int) -- result and byte offset
+  | Failed Int -- byte offset of failure
+  | Partial AttrParserState -- entire bytestring consumed
+  deriving (Typeable)
+
+data AttrParserState =
+  AttrParserState
+  { aState :: AState
+  , subject :: ByteString
+  , offset :: Int
+  , parts :: [AttrPart] }
+  deriving (Typeable)
+
+data AState =
+    SCANNING
+  | SCANNING_VALUE
+  | SCANNING_QUOTED_VALUE
+  | SCANNING_ESCAPE
+  | SCANNING_COMMENT
+  | FAIL
+  | DONE
+  | START
+  deriving (Eq, Ord, Show, Typeable)
+
+data AttrPart =
+    AttrId ByteString
+  | AttrClass ByteString
+  | AttrKey ByteString
+  | AttrValue ByteString
+  deriving (Eq, Ord, Show, Typeable)
+
 -- resumable parser -- parts in reverse order
-pAttrParts :: AttrParserState -> AttrParserState
-pAttrParts = go
+parseAttributes :: Maybe AttrParserState -> ByteString -> AttrParseResult
+parseAttributes mbState bs =
+  case go (fromMaybe AttrParserState{ aState = START
+                                    , subject = bs
+                                    , offset = 0
+                                    , parts = [] } mbState) of
+    AttrParserState{ aState = DONE, parts = attparts, offset = off } ->
+      Done (attrPartsToAttr attparts, off)
+    AttrParserState{ aState = FAIL, offset = off } -> Failed off
+    st -> Partial st
  where
   go :: AttrParserState -> AttrParserState
   go st@(AttrParserState _ subj off _) = -- trace (show st) $
@@ -125,32 +165,6 @@ pAttrParts = go
 --  quotedval <- '"' ([^"] | '\"') '"'
 --  ignorable <- whitespace | comment
 --  comment <- '%' [^%}]* '%'
-
-data AttrParserState =
-  AttrParserState
-  { aState :: AState
-  , subject :: ByteString
-  , offset :: Int
-  , parts :: [AttrPart] }
-  deriving (Show)
-
-data AState =
-    SCANNING
-  | SCANNING_VALUE
-  | SCANNING_QUOTED_VALUE
-  | SCANNING_ESCAPE
-  | SCANNING_COMMENT
-  | FAIL
-  | DONE
-  | START
-  deriving (Eq, Ord, Show)
-
-data AttrPart =
-    AttrId ByteString
-  | AttrClass ByteString
-  | AttrKey ByteString
-  | AttrValue ByteString
-  deriving (Eq, Ord, Show)
 
 attrPartsToAttr :: [AttrPart] -> Attr
 attrPartsToAttr = go
