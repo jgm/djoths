@@ -382,8 +382,9 @@ sectionSpec =
         h Seq.:<| _
           | blockName (containerSpec h) == "Heading" -> do
              let SectionData lev _ = getContainerData container
+             let HeadingData _ ils = getContainerData h
              (secid, attr, label) <- do
-               let bs = fold (containerText h)
+               let bs = inlinesToByteString ils
                let Attr ats = containerAttr container
                case lookup "id" ats of
                  Just id' -> pure (id', mempty, normalizeLabel bs)
