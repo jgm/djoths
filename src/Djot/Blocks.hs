@@ -402,7 +402,7 @@ sectionSpec =
                                 st{ psIds = Set.insert candidate (psIds st) }
                               pure candidate
                    ident <- generateId 0 (toIdentifier bs)
-                   pure (ident, Attr [("_autogen","1")], normalizeLabel bs)
+                   pure (ident, mempty, normalizeLabel bs)
              -- add implicit reference
              let dest = "#" <> secid
              modifyP $ \st -> st{ psReferenceMap =
