@@ -161,6 +161,11 @@ instance ToLayout (Node Block) where
   toLayout (Node attr bl) =
     ($$) <$> toLayout (case bl of
                          -- don't print an id that was generated implicitly
+                         Heading _ ils ->
+                           let Attr as = attr
+                               autoid = toIdentifier (inlinesToByteString ils)
+                            in Attr [(k,v) | (k,v) <- as
+                                           , not (k == "id" && v == autoid)]
                          Section bls ->
                            case Seq.viewl (unMany bls) of
                                Node _ (Heading _ ils) Seq.:< _
