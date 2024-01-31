@@ -32,6 +32,7 @@ module Djot.FlatParse
   byteString,
   withByteString,
   lookahead,
+  takeRest,
   notFollowedBy,
   optional_,
   branch,
