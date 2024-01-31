@@ -5,6 +5,7 @@
 module Djot.Blocks
 ( parseDoc
 , ParseOptions(..)
+, toIdentifier
 )
 where
 
