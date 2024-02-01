@@ -5,10 +5,10 @@ module Djot.Parse
   , parse
   , skip
   , asciiChar
-  , satisfyAsciiChar
-  , skipSatisfyAsciiChar
+  , satisfyAscii
+  , skipSatisfyAscii
   , anyAsciiChar
-  , satisfyChar
+  , satisfy
   , anyChar
   , skipMany
   , skipSome
@@ -148,23 +148,23 @@ skip n = Parser $ \st ->
      else Nothing
 
 -- | Parse an ASCII Char satisfying a predicate.
-satisfyAsciiChar :: (Char -> Bool) -> Parser s Char
-satisfyAsciiChar f = Parser $ \st ->
+satisfyAscii :: (Char -> Bool) -> Parser s Char
+satisfyAscii f = Parser $ \st ->
   case peek st of
     Just c | f c -> Just (advance 1 st, c)
     _ -> Nothing
 
 -- | Skip an ASCII Char satisfying a predicate.
-skipSatisfyAsciiChar :: (Char -> Bool) -> Parser s ()
-skipSatisfyAsciiChar f = Parser $ \st ->
+skipSatisfyAscii :: (Char -> Bool) -> Parser s ()
+skipSatisfyAscii f = Parser $ \st ->
   case peek st of
     Just c | f c -> Just (advance 1 st, ())
     _ -> Nothing
 
 -- | Parse a (possibly multibyte) Char satisfying a predicate.
 -- Assumes UTF-8 encoding.
-satisfyChar :: (Char -> Bool) -> Parser s Char
-satisfyChar f = Parser $ \st ->
+satisfy :: (Char -> Bool) -> Parser s Char
+satisfy f = Parser $ \st ->
   let b1 = fromMaybe 0 $ peekWord 0 st
       b2 = fromMaybe 0 $ peekWord 1 st
       b3 = fromMaybe 0 $ peekWord 2 st
@@ -202,7 +202,7 @@ satisfyChar f = Parser $ \st ->
 
 -- | Parse any character. Assumes UTF-8 encoding.
 anyChar :: Parser s Char
-anyChar = satisfyChar (const True)
+anyChar = satisfy (const True)
 
 -- | Parse an ASCII character.
 asciiChar :: Char -> Parser s ()
@@ -213,7 +213,7 @@ asciiChar c = Parser $ \st ->
 
 -- | Parse any ASCII character.
 anyAsciiChar :: Parser s Char
-anyAsciiChar = satisfyAsciiChar (const True)
+anyAsciiChar = satisfyAscii (const True)
 
 -- | Apply parser 0 or more times, discarding result.
 skipMany :: Parser s a -> Parser s ()
