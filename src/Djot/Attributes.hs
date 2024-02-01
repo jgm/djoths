@@ -10,7 +10,7 @@ module Djot.Attributes
 where
 import Data.Char (isAlphaNum, isSpace, isPunctuation)
 import Djot.AST (Attr(..))
-import Djot.FlatParse (ParserT, takeRest, lookahead, skip, failed, isWs)
+import Djot.Parse
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Char8 ( (!?) )
@@ -18,7 +18,7 @@ import Data.Typeable (Typeable)
 import Data.Maybe (fromMaybe)
 -- import Debug.Trace
 
-pAttributes :: ParserT m s String Attr
+pAttributes :: Parser s Attr
 pAttributes = do
   bs <- lookahead takeRest
   case parseAttributes Nothing bs of

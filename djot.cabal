@@ -20,7 +20,6 @@ extra-source-files: test/*.test
 Library
     build-depends:    base,
                       bytestring >= 0.11.3,
-                      flatparse >= 0.5,
                       containers,
                       mtl,
                       -- only needed for Djot.Djot, could be in separate lib
@@ -30,7 +29,7 @@ Library
     default-language: Haskell2010
     exposed-modules:  Djot
                       Djot.AST
-    other-modules:    Djot.FlatParse
+    other-modules:    Djot.Parse
                       Djot.Options
                       Djot.Attributes
                       Djot.Inlines

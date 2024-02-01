@@ -9,17 +9,20 @@ module Djot.Inlines
 where
 
 import Data.Char (isAscii, isLetter, isAlphaNum, isSymbol, isPunctuation)
-import Control.Monad (guard, when, unless, mzero)
+import Control.Monad (guard, when, mzero)
 import Data.Sequence (Seq)
-import Data.Bits (testBit, setBit, clearBit, (.&.), (.|.))
 import qualified Data.Sequence as Seq
-import Djot.FlatParse
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Djot.Parse
 import Djot.Attributes (pAttributes)
 import Djot.AST
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Data.Foldable as F
+import Control.Applicative
+import Data.Maybe (fromMaybe)
 
 -- TODO:
 -- [ ] withSourcePos combinator on pInline
@@ -37,24 +40,25 @@ isSpecial c = c == '[' || c == ']' || c == '<' || c == '>' ||
 parseInlines :: Seq ByteString -> Either String Inlines
 parseInlines lns = do
   let inp = B8.dropWhileEnd isWs $ fold lns
-  case runParser pInlines NormalMode 0 inp of
-    OK ils _ unconsumedBs
-      | B.null unconsumedBs -> pure ils
+  case parse pInlines ParserState{ mode = NormalMode
+                                 , activeDelims = mempty } inp of
+    Just (off, ils)
+      | off >= B8.length inp -> Right ils
       | otherwise -> Left $ "parseInlines failed to consume input: " <>
-                              show unconsumedBs
-    Fail -> Left $ "parseInlines failed on input: " <> show inp
-    Err e -> Left e
+                              show (B8.drop off inp)
+    Nothing -> Left $ "parseInlines failed on input: " <> show inp
 
 parseTableCells :: ByteString -> Either String [Inlines]
-parseTableCells inp = do
-  case runParser (many (removeFinalWs <$> pInlines <* asciiChar' '|')) TableCellMode
-          0 (B8.dropWhileEnd isWs inp) of
-    OK cells _ unconsumedBs
-      | B.null unconsumedBs -> pure cells
+parseTableCells inp' = do
+  let inp = B8.dropWhileEnd isWs inp'
+  case parse (many (removeFinalWs <$> pInlines <* asciiChar '|'))
+        ParserState{ mode = TableCellMode
+                   , activeDelims = mempty } inp of
+    Just (off, cells)
+      | off >= B8.length inp -> Right cells
       | otherwise -> Left $ "parseTableCells failed to consume input: " <>
-                              show unconsumedBs
-    Fail -> Left $ "parseTableCells failed on input: " <> show inp
-    Err e -> Left e
+                              show (B8.drop off inp)
+    Nothing -> Left $ "parseTableCells failed on input: " <> show inp
 
 removeFinalWs :: Inlines -> Inlines
 removeFinalWs (Many ils) = Many $
@@ -70,7 +74,16 @@ data InlineParseMode =
   NormalMode | TableCellMode
   deriving (Show, Ord, Eq)
 
-type P = Parser InlineParseMode String
+data ParserState =
+  ParserState
+  { mode :: InlineParseMode
+  , activeDelims :: Set Delim }
+  deriving (Show, Ord, Eq)
+
+data Delim = Delim Bool Char
+  deriving (Show, Ord, Eq)
+
+type P = Parser ParserState
 
 -- for mutable state, can do something like:
 -- type P s = ParserST s (STRef s PState) String
@@ -158,8 +171,8 @@ pInline' = do
 
 pSpecial :: P Inlines
 pSpecial = do
-  mode <- ask
-  c <- satisfyAscii' (case mode of
+  st <- getState
+  c <- satisfyAscii (case mode st of
                        TableCellMode -> \d -> isSpecial d && d /= '|'
                        _ -> isSpecial)
   if c == '\r'
@@ -167,20 +180,19 @@ pSpecial = do
      else pure $ str $ strToUtf8 [c]
 
 pWords :: P Inlines
-pWords =
-  str <$> byteStringOf (skipSome (skipSatisfyAscii' (not . isSpecial)))
+pWords = str <$> someAsciiWhile (not . isSpecial)
 
 pEscaped :: P Inlines
 pEscaped = do
-  asciiChar' '\\'
-  c <- satisfyAscii' (\d ->
+  asciiChar '\\'
+  c <- satisfyAscii (\d ->
           isAscii d &&
             (isSymbol d || isPunctuation d || d == ' ' || d == '\t'))
          <|> ('\n' <$ endline)
          <|> pure '\\'
   case c of
     '\n' -> hardBreak <$ skipMany spaceOrTab
-    _ | c == ' ' || c == '\t' -> try pHardBreak
+    _ | c == ' ' || c == '\t' -> pHardBreak
                              <|> if c == ' '
                                     then pure nonBreakingSpace
                                     else pure $ str "\\\t"
@@ -195,23 +207,23 @@ pHardBreak = do -- assumes we've parsed \ already
 
 pSoftBreak :: P Inlines
 pSoftBreak = do
-  asciiChar' '\n'
+  asciiChar '\n'
   skipMany ws
   (mempty <$ eof) <|> pure softBreak
 
 pSymbol :: P Inlines
-pSymbol = try $ do
-  asciiChar' ':'
-  bs <- byteStringOf $ skipSome (skipSatisfyAscii'
+pSymbol = do
+  asciiChar ':'
+  bs <- byteStringOf $ skipSome (skipSatisfyAscii
                                     (\c -> c == '+' || c == '-' ||
                                          (isAscii c && isAlphaNum c)))
-  asciiChar' ':'
+  asciiChar ':'
   pure $ symbol bs
 
 pMath :: P Inlines
-pMath = try $ do
-  asciiChar' '$'
-  mathStyle <- (DisplayMath <$ asciiChar' '$') <|> pure InlineMath
+pMath = do
+  asciiChar '$'
+  mathStyle <- (DisplayMath <$ asciiChar '$') <|> pure InlineMath
   verb <- pVerbatim
   case unMany verb of
          [Node attr (Verbatim bs)] ->
@@ -219,21 +231,6 @@ pMath = try $ do
          _ -> pure $ (case mathStyle of
                         DisplayMath -> str "$$"
                         _ -> str "$") <> verb
-
--- We use bits in state to track when we've had an opening for
--- an inline container:
--- bit  container require braces
--- ---  --------  --------------
--- 10   *         f
--- 11   _         f
--- 12   ^         f
--- 13   ~         f
--- 14   =         t
--- 15   +         t
--- 16   -         t
--- 17  reserved
--- 18  set if parsing inside '['
--- 19  set if opener had '{'
 
 {-# INLINE bracesRequired #-}
 bracesRequired :: Char -> Bool
@@ -244,22 +241,15 @@ bracesRequired _ = False
 
 pCloser :: P ()
 pCloser = do
-  i <- get
-  if i .&. 0b000000000000000000000000000000000000000000011111111110000000000 == 0
-     then failed
+  delims <- activeDelims <$> getState
+  if Set.null delims
+     then mzero
      else do
-       skipSatisfyAscii' (\d ->
-                  (testBit i 10 && d == '*')
-               || (testBit i 11 && d == '_')
-               || (testBit i 12 && d == '^')
-               || (testBit i 13 && d == '~')
-               || (testBit i 14 && d == '=')
-               || (testBit i 15 && d == '+')
-               || (testBit i 16 && d == '-')
-               || (testBit i 18 && d == ']'))
-       let afterws = not $ testBit i 9
-       let openerHadBrace = testBit i 19
-       when ( afterws || openerHadBrace ) $ asciiChar' '}'
+       openerHadBrace <- asum $
+         map (\(Delim hadBrace c) -> hadBrace <$ asciiChar c) (F.toList delims)
+       mblastc <- peekBack
+       let afterws = maybe True isWs mblastc
+       when ( afterws || openerHadBrace ) $ asciiChar '}'
 
 pEmph, pStrong, pSuperscript, pSubscript :: P Inlines
 pEmph = pBetween '_' emph
@@ -273,61 +263,47 @@ pInsert = pBetween '+' insert
 pDelete = pBetween '-' delete
 
 pBetween :: Char -> (Inlines -> Inlines) -> P Inlines
-pBetween c constructor = try $ do
-  let starter leftBrace = try $ do
+pBetween c constructor = do
+  let starter leftBrace = do
         case leftBrace of
           False
-            | bracesRequired c -> failed
-            | otherwise -> asciiChar' c `notFollowedBy`
-                                (ws <|> asciiChar' '}')
-          True -> asciiChar' c `notFollowedBy` asciiChar' '}'
-  let ender leftBrace = try $ do
-        afterws <- afterWs
-        asciiChar' c
+            | bracesRequired c -> mzero
+            | otherwise -> asciiChar c `notFollowedBy`
+                                (ws <|> asciiChar '}')
+          True -> asciiChar c `notFollowedBy` asciiChar '}'
+  let ender leftBrace = do
+        mblastc <- peekBack
+        let afterws = maybe True isWs mblastc
+        asciiChar c
         if leftBrace
-           then asciiChar' '}'
-           else guard (not afterws) `notFollowedBy` asciiChar' '}'
-  leftBrace <- (True <$ asciiChar' '{') <|> pure False
+           then asciiChar '}'
+           else guard (not afterws) `notFollowedBy` asciiChar '}'
+  leftBrace <- (True <$ asciiChar '{') <|> pure False
   starterBs <- (if leftBrace then ("{" <>) else id) <$>
                  byteStringOf (starter leftBrace)
-  let bit = case c of
-        '*' -> 10
-        '_' -> 11
-        '^' -> 12
-        '~' -> 13
-        '=' -> 14
-        '+' -> 15
-        '-' -> 16
-        _   -> 17
-  priorState <- get
-  modify $ \i -> setBit i bit
-  modify $ \i -> if leftBrace
-                    then setBit i 19
-                    else clearBit i 19
+  oldActiveDelims <- activeDelims <$> getState
+  updateState $ \st -> st{ activeDelims = Set.insert (Delim leftBrace c)
+                                             (activeDelims st) }
   firstIl <- pInline <|> pBetween c constructor -- to allow stacked cases like '**hi**'
   restIls <- many pInline
   let ils = mconcat (firstIl:restIls)
-  modify $ \i -> i .&. 0b111111111111111111111111111111111111111111100000000001111111111
-                   .|. (priorState .&.
-                       0b000000000000000000000000000000000000000000011111111110000000000)
+  updateState $ \st -> st{ activeDelims = oldActiveDelims }
   (constructor ils <$ ender leftBrace) <|> pure (str starterBs <> ils)
 
 pTicks :: P Int
 pTicks = do
-  Pos sp <- getPos
-  skipSome (asciiChar' '`')
-  Pos ep <- getPos
-  pure (sp - ep)
+  sp <- getOffset
+  skipSomeAsciiWhile (=='`')
+  ep <- getOffset
+  pure (ep - sp)
 
 pVerbatim :: P Inlines
 pVerbatim = do
   numticks <- pTicks
-  let ender = try $ do
-         n <- pTicks
-         unless (n == numticks) failed
-  let content = skipSome (skipSatisfyAscii' (\c -> c /= '`' && c /= '\\')) <|>
-                 try (asciiChar' '\\' <* anyChar) <|>
-                 (fails ender *> skipSome (asciiChar' '`'))
+  let ender = pTicks >>= guard . (== numticks)
+  let content = skipSomeAsciiWhile (\c -> c /= '`' && c /= '\\') <|>
+                 (asciiChar '\\' <* anyChar) <|>
+                 (fails ender *> skipSomeAsciiWhile (== '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
   (rawInline <$> pRawAttribute <*> pure bs) <|> pure (verbatim bs)
 
@@ -350,54 +326,52 @@ trimSpaces = trimSpaceFront . trimSpaceBack
           _ -> bs
 
 pRawAttribute :: P Format
-pRawAttribute = try $ do
+pRawAttribute = do
   byteString "{="
   fmt <- Format <$>
-             byteStringOf (skipMany (skipSatisfyAscii' (\c -> c /= '}' &&
+             byteStringOf (skipMany (skipSatisfyAscii (\c -> c /= '}' &&
                                                  not (isWs c))))
-  asciiChar' '}'
+  asciiChar '}'
   pure fmt
 
 pFootnoteReference :: P Inlines
-pFootnoteReference = try $ do
-  asciiChar' '['
-  asciiChar' '^'
+pFootnoteReference = do
+  asciiChar '['
+  asciiChar '^'
   label <- byteStringOf $ skipMany $
-             skipSatisfyAscii' (\c -> c /= ']' && not (isWs c))
-  asciiChar' ']'
+             skipSatisfyAscii (\c -> c /= ']' && not (isWs c))
+  asciiChar ']'
   pure $ footnoteReference label
 
 -- returns Left with parsed content if no ] has been reached, otherwise Right
 -- with inner contents.
 pBracketed :: P (Either Inlines Inlines)
 pBracketed = do
-  let starter = asciiChar' '['
-  let ender = asciiChar' ']'
+  let starter = asciiChar '['
+  let ender = asciiChar ']'
   starterBs <- byteStringOf starter
-  priorState <- get
-  modify $ \i -> setBit i 18
+  oldActiveDelims <- activeDelims <$> getState
+  updateState $ \st -> st{ activeDelims = Set.insert (Delim False ']') (activeDelims st) }
   ils <- mconcat <$> many pInline
-  modify $ \i -> i .&. 0b111111111111111111111111111111111111111111100000000001111111111
-                   .|. (priorState .&.
-                       0b000000000000000000000000000000000000000000011111111110000000000)
+  updateState $ \st -> st{ activeDelims = oldActiveDelims }
   (Right ils <$ ender) <|> pure (Left (str starterBs <> ils))
 
 pImage :: P Inlines
 pImage = do
-  asciiChar' '!'
-  (res, raw) <- withByteString pBracketed (curry pure)
+  asciiChar '!'
+  (res, raw) <- withByteString pBracketed
   case res of
     Left ils -> pure (str "!" <> ils)
     Right ils ->
-            ((str "!" <> span_ ils) <$ lookahead (asciiChar' '{'))
+            ((str "!" <> span_ ils) <$ lookahead (asciiChar '{'))
         <|> (image ils <$> (pDestination <|> pReference raw))
         <|> pure (str "![" <> ils <> str "]")
 
 pAutolink :: P Inlines
-pAutolink = try $ do
-  asciiChar' '<'
-  res <- byteStringOf $ skipSome $ skipSatisfyAscii' (\c -> c /= '>' && c /= '<')
-  asciiChar' '>'
+pAutolink = do
+  asciiChar '<'
+  res <- byteStringOf $ skipSome $ skipSatisfyAscii (\c -> c /= '>' && c /= '<')
+  asciiChar '>'
   let url = B8.filter (\c -> c /= '\n' && c /= '\r') res
   case B8.find (\c -> c == '@' || c == ':' || c == '.') url of
     Just '@' -> pure $ emailLink url
@@ -406,20 +380,20 @@ pAutolink = try $ do
 
 pLinkOrSpan :: P Inlines
 pLinkOrSpan = do
-  (res, raw) <- withByteString pBracketed (curry pure)
+  (res, raw) <- withByteString pBracketed
   case res of
     Left ils -> pure ils
     Right ils ->
-            (span_ ils <$ lookahead (asciiChar' '{'))
+            (span_ ils <$ lookahead (asciiChar '{'))
         <|> (link ils <$> (pDestination <|> pReference raw))
         <|> pure (str "[" <> ils <> str "]")
 
 -- We allow balanced pairs of parens inside.
 pDestination :: P Target
-pDestination = try $ do
-  asciiChar' '('
+pDestination = do
+  asciiChar '('
   res <- byteStringOf $ pInBalancedParens 0
-  asciiChar' ')'
+  asciiChar ')'
   pure $ Direct (snd (handleEscapesAndNewlines res))
  where
   handleEscapesAndNewlines = B8.foldl' go (False, mempty)
@@ -431,22 +405,22 @@ pDestination = try $ do
 
 pInBalancedParens :: Int -> P ()
 pInBalancedParens nestlevel =
-  (guard (nestlevel == 0) <* lookahead (asciiChar' ')')) <|>
+  (guard (nestlevel == 0) <* lookahead (asciiChar ')')) <|>
     do lev <-   (nestlevel <$ (fails pCloser *>
                                -- but see https://github.com/jgm/djot/discussions/247
-                               skipSatisfyAscii'
+                               skipSatisfyAscii
                                  (\c -> c /= '(' && c /= ')' && c /= '\\')))
-            <|> (nestlevel <$ (asciiChar' '\\' *> skipAnyChar))
-            <|> ((nestlevel + 1) <$ asciiChar' '(')
-            <|> ((nestlevel - 1) <$ asciiChar' ')')
+            <|> (nestlevel <$ (asciiChar '\\' <* anyChar))
+            <|> ((nestlevel + 1) <$ asciiChar '(')
+            <|> ((nestlevel - 1) <$ asciiChar ')')
        pInBalancedParens lev
 
 pReference :: ByteString -> P Target
-pReference rawDescription = try $ do
-  asciiChar' '['
-  bs <- byteStringOf $ pAtMost 400 $ skipSatisfyAscii'
+pReference rawDescription = do
+  asciiChar '['
+  bs <- byteStringOf $ pAtMost 400 $ skipSatisfyAscii
            (\c -> c /= '[' && c /= ']')
-  asciiChar' ']'
+  asciiChar ']'
   let label = normalizeLabel $
               if B.null bs
                  then B.drop 1 $ B.dropEnd 1
@@ -458,19 +432,20 @@ pAtMost :: Int -> P () -> P ()
 pAtMost n pa = optional_ (pa *> when (n > 0) (pAtMost ( n - 1 ) pa))
 
 pOpenDoubleQuote :: P ()
-pOpenDoubleQuote = try $ do
-  lbrace <- (True <$ asciiChar' '{') <|> pure False
-  asciiChar' '"'
-  rbrace <- (True <$ asciiChar' '}') <|> pure False
+pOpenDoubleQuote = do
+  lbrace <- (True <$ asciiChar '{') <|> pure False
+  asciiChar '"'
+  rbrace <- (True <$ asciiChar '}') <|> pure False
   guard $ lbrace || not rbrace
 
 pCloseDoubleQuote :: P ()
-pCloseDoubleQuote = try $ do
-  whitespaceBefore <- afterWs
-  lbrace <- (True <$ asciiChar' '{') <|> pure False
-  asciiChar' '"'
-  rbrace <- (True <$ asciiChar' '}') <|> pure False
-  whitespaceAfter <- (True <$ lookahead (skipSatisfyAscii' isWs)) <|> pure False
+pCloseDoubleQuote = do
+  mblastc <- peekBack
+  let whitespaceBefore = maybe True isWs mblastc
+  lbrace <- (True <$ asciiChar '{') <|> pure False
+  asciiChar '"'
+  rbrace <- (True <$ asciiChar '}') <|> pure False
+  whitespaceAfter <- (True <$ lookahead (skipSatisfyAscii isWs)) <|> pure False
   guard $ not lbrace && (rbrace || not whitespaceBefore || whitespaceAfter)
 
 pDoubleQuote :: P Inlines
@@ -479,31 +454,32 @@ pDoubleQuote = (do
   contents <- mconcat <$> many (fails pCloseDoubleQuote *> pInline)
   (doubleQuoted contents <$ pCloseDoubleQuote)
     <|> pure (openDoubleQuote <> contents))
- <|> (closeDoubleQuote <$ asciiChar' '"')
+ <|> (closeDoubleQuote <$ asciiChar '"')
 
 openDoubleQuote, closeDoubleQuote :: Inlines
 openDoubleQuote = str (strToUtf8 "\x201C")
 closeDoubleQuote = str (strToUtf8 "\x201D")
 
 pOpenSingleQuote :: P ()
-pOpenSingleQuote = try $ do
-  lastc <- lastChar
+pOpenSingleQuote = do
+  lastc <- fromMaybe '\n' <$> peekBack
   let openContext = lastc == '\t' || lastc == '\r' ||
                     lastc == '\n' || lastc == ' ' ||
                     lastc == '"' || lastc == '\'' ||
                     lastc == '(' || lastc == '[' || lastc == '\0'
-  lbrace <- (True <$ asciiChar' '{') <|> pure False
-  asciiChar' '\''
-  rbrace <- (True <$ asciiChar' '}') <|> pure False
+  lbrace <- (True <$ asciiChar '{') <|> pure False
+  asciiChar '\''
+  rbrace <- (True <$ asciiChar '}') <|> pure False
   guard $ lbrace || (openContext && not rbrace)
 
 pCloseSingleQuote :: P ()
-pCloseSingleQuote = try $ do
-  whitespaceBefore <- afterWs
-  lbrace <- (True <$ asciiChar' '{') <|> pure False
-  asciiChar' '\''
-  rbrace <- (True <$ asciiChar' '}') <|> pure False
-  letterAfter <- (True <$ lookahead (skipSatisfy' isLetter)) <|> pure False
+pCloseSingleQuote = do
+  mblastc <- peekBack
+  let whitespaceBefore = maybe True isWs mblastc
+  lbrace <- (True <$ asciiChar '{') <|> pure False
+  asciiChar '\''
+  rbrace <- (True <$ asciiChar '}') <|> pure False
+  letterAfter <- (True <$ lookahead (satisfy isLetter)) <|> pure False
   guard $ not lbrace && (rbrace || not (whitespaceBefore || letterAfter))
 
 pSingleQuote :: P Inlines
@@ -512,7 +488,7 @@ pSingleQuote = (do
   contents <- mconcat <$> many (fails pCloseSingleQuote *> pInline)
   (singleQuoted contents <$ pCloseSingleQuote)
     <|> pure (closeSingleQuote <> contents))
- <|> (closeSingleQuote <$ asciiChar' '\'')
+ <|> (closeSingleQuote <$ asciiChar '\'')
 
 closeSingleQuote :: Inlines
 closeSingleQuote = str (strToUtf8 "\x2019")
@@ -524,7 +500,7 @@ pHyphens = do
     where
      emdash = strToUtf8 "\x2014"
      endash = strToUtf8 "\x2013"
-     hyphen = asciiChar' '-' `notFollowedBy` asciiChar' '}'
+     hyphen = asciiChar '-' `notFollowedBy` asciiChar '}'
      go 1 = "-"
      go n | n `mod` 3 == 0
           = mconcat (replicate (n `Prelude.div` 3) emdash)
