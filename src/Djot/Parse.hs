@@ -99,7 +99,9 @@ data ParserState a =
   }
   deriving (Show)
 
--- Returns final byte offset and result.
+-- | Apply a parser to a bytestring with a given user state.
+-- Returns @Nothing@ on failure, @Just (byteOffset, result)@
+-- on success.
 parse :: Parser s a -> s -> ByteString -> Maybe (Int, a)
 parse parser ustate bs =
   first offset <$>
@@ -109,7 +111,7 @@ parse parser ustate bs =
                                  , column = 0
                                  , userState = ustate }
 
--- Given a number of bytes, advances the offset and updates source positions.
+-- | Given a number of bytes, advances the offset and updates line/column.
 advance :: Int -> ParserState s -> ParserState s
 advance n st' =
   B.foldl' go st' bs
@@ -130,30 +132,37 @@ advance n st' =
                            , column = column st + 1 }
      | otherwise = st{ offset = offset st + 1 }
 
+-- | Returns current byte as Char.
 peek :: ParserState s -> Maybe Char
 peek st = subject st B8.!? offset st
 
+-- | Returns previous byte as Char.
 peekBack :: ParserState s -> Maybe Char
 peekBack st = subject st B8.!? (offset st - 1)
 
+-- | Skip $n$ bytes.
 skip :: Int -> Parser s ()
 skip n = Parser $ \st ->
   if offset st + n <= B8.length (subject st)
      then Just (advance n st, ())
      else Nothing
 
+-- | Parse an ASCII Char satisfying a predicate.
 satisfyAsciiChar :: (Char -> Bool) -> Parser s Char
 satisfyAsciiChar f = Parser $ \st ->
   case peek st of
     Just c | f c -> Just (advance 1 st, c)
     _ -> Nothing
 
+-- | Skip an ASCII Char satisfying a predicate.
 skipSatisfyAsciiChar :: (Char -> Bool) -> Parser s ()
 skipSatisfyAsciiChar f = Parser $ \st ->
   case peek st of
     Just c | f c -> Just (advance 1 st, ())
     _ -> Nothing
 
+-- | Parse a (possibly multibyte) Char satisfying a predicate.
+-- Assumes UTF-8 encoding.
 satisfyChar :: (Char -> Bool) -> Parser s Char
 satisfyChar f = Parser $ \st ->
   let b1 = fromMaybe 0 $ peekWord 0 st
@@ -191,18 +200,22 @@ satisfyChar f = Parser $ \st ->
      fromIntegral (d .&. 0b00111111)
   peekWord n st' = subject st' B.!? (offset st' + n)
 
+-- | Parse any character. Assumes UTF-8 encoding.
 anyChar :: Parser s Char
 anyChar = satisfyChar (const True)
 
+-- | Parse an ASCII character.
 asciiChar :: Char -> Parser s ()
 asciiChar c = Parser $ \st ->
   case peek st of
     Just d | d == c -> Just (advance 1 st, ())
     _ -> Nothing
 
+-- | Parse any ASCII character.
 anyAsciiChar :: Parser s Char
 anyAsciiChar = satisfyAsciiChar (const True)
 
+-- | Apply parser 0 or more times, discarding result.
 skipMany :: Parser s a -> Parser s ()
 skipMany parser = Parser go
  where
@@ -210,37 +223,47 @@ skipMany parser = Parser go
              Nothing -> Just (st, ())
              Just (st',_) -> go st'
 
+-- | Apply parser 1 or more times, discarding result.
 skipSome :: Parser s a -> Parser s ()
 skipSome parser = parser *> skipMany parser
 
+-- | Succeeds if no more input.
 eof :: Parser s ()
 eof = Parser $ \st ->
   if offset st >= B8.length (subject st)
      then Just (st, ())
      else Nothing
 
+-- | Returns current user state.
 getState :: Parser s s
 getState = Parser $ \st -> Just (st, userState st)
 
+-- | Updates user state.
 updateState :: (s -> s) -> Parser s ()
 updateState f = Parser $ \st ->
   Just (st{ userState = f (userState st) }, ())
 
+-- | Apply a parser, returning its result but not changing state
+-- or advancing.
 lookahead :: Parser s a -> Parser s a
 lookahead pa = Parser $ \st ->
   case runParser pa st of
     Just (_, x) -> Just (st, x)
     Nothing -> Nothing
 
+-- | Succeeds if parser fails.
 fails :: Parser s a -> Parser s ()
 fails pa = Parser $ \st ->
   case runParser pa st of
     Just _ -> Nothing
     Nothing -> Just (st, ())
 
+-- | Always fails.
 failed :: Parser s ()
 failed = Parser $ const Nothing
 
+-- | Returns result of parse together with the bytestring
+-- consumed.
 withByteString :: Parser s a -> Parser s (a, ByteString)
 withByteString pa = Parser $ \st ->
   case runParser pa st of
@@ -248,6 +271,7 @@ withByteString pa = Parser $ \st ->
                                     (B8.drop (offset st) (subject st))))
     Nothing -> Nothing
 
+-- | Returns bytestring consumed by parse.
 byteStringOf :: Parser s a -> Parser s ByteString
 byteStringOf pa = Parser $ \st ->
   case runParser pa st of
@@ -255,29 +279,38 @@ byteStringOf pa = Parser $ \st ->
                                     (B8.drop (offset st) (subject st)))
     Nothing -> Nothing
 
+-- | Succeeds if first parser succeeds and second fails, returning
+-- first parser's value.
 notFollowedBy :: Parser s a -> Parser s b -> Parser s a
 notFollowedBy pa pb = pa <* fails pb
 
+-- | Apply parser but still succeed if it doesn't succeed.
 optional_ :: Parser s a -> Parser s ()
 optional_ pa = void pa <|> pure ()
 
+-- | Parse a bytestring.
 byteString :: ByteString -> Parser s ()
 byteString bs = Parser $ \st ->
   if bs `B8.isPrefixOf` (subject st)
      then Just (advance (B8.length bs) st, ())
      else Nothing
 
+-- | Consume 0 or more ASCII characters matching a predicate,
+-- returning the bytestring consumed.
 manyAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 manyAsciiWhile f = Parser $ \st ->
   let bs = B8.takeWhile f (subject st)
   in  Just (advance (B8.length bs) st, bs)
 
+-- | Skip 0 or more ASCII characters matching a predicate.
 skipAsciiWhile :: (Char -> Bool) -> Parser s ()
 skipAsciiWhile f = Parser $ \st ->
   case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
     Nothing -> Nothing
     Just i -> Just (advance i st, ())
 
+-- | Consume 1 or more ASCII characters matching a predicate,
+-- returning the bytestring consumed.
 someAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 someAsciiWhile f = Parser $ \st ->
   if fmap f (peek st) == Just True
@@ -286,38 +319,50 @@ someAsciiWhile f = Parser $ \st ->
        in  Just (advance (B8.length bs) st, bs)
      else Nothing
 
+-- | Returns rest of input and moves to eof.
 takeRest :: Parser s ByteString
 takeRest = Parser $ \st -> Just (st{ offset = B8.length (subject st) },
                                  B8.drop (offset st) (subject st) )
 
+-- | Returns byte offset in input.
 getOffset :: Parser s Int
 getOffset = Parser $ \st -> Just (st, offset st)
 
+-- | Returns the line number.
 sourceLine :: Parser s Int
 sourceLine = Parser $ \st -> Just (st, line st)
 
+-- | Returns the source column number. (Tab stop is computed at 4.)
 sourceColumn :: Parser st Int
 sourceColumn = Parser $ \st -> Just (st, column st)
 
-branch :: Parser s a -> Parser s a -> Parser s a -> Parser s a
+-- | Try the first parser: if it succeeds, apply the second,
+-- returning its result, otherwise the third.
+branch :: Parser s b -> Parser s a -> Parser s a -> Parser s a
 branch pa pb pc = Parser $ \st ->
   case runParser pa st of
     Just (st',_) -> runParser pb st'
     Nothing -> runParser pc st
 
+-- | Parse an end of line sequence.
 endline :: Parser s ()
 endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 
+-- | Return the rest of line (not including the end of line, though it is
+-- consumed).
 restOfLine :: Parser s ByteString
 restOfLine = manyAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
 
 {-# INLINE isWs #-}
+-- | Is space, tab, `\r`, or `\n`.
 isWs :: Char -> Bool
 isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 
 {-# INLINE spaceOrTab #-}
+-- | Skip spaces or tabs.
 spaceOrTab :: Parser s ()
 spaceOrTab = skipAsciiWhile (\c -> c == ' ' || c == '\t')
 
+-- | Skip ASCII whitespace.
 ws :: Parser s ()
 ws = skipAsciiWhile isWs
