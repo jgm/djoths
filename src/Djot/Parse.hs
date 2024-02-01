@@ -347,8 +347,7 @@ branch pa pb pc = Parser $ \st ->
 
 -- | Parse an end of line sequence.
 endline :: Parser s ()
-endline = asciiChar '\n' <|> (asciiChar '\r' *> asciiChar '\n')
-  -- branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
+endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 
 -- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
