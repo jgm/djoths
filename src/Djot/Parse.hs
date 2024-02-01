@@ -291,7 +291,7 @@ optional_ pa = void pa <|> pure ()
 -- | Parse a bytestring.
 byteString :: ByteString -> Parser s ()
 byteString bs = Parser $ \st ->
-  if bs `B8.isPrefixOf` (subject st)
+  if bs `B8.isPrefixOf` (B8.drop (offset st) (subject st))
      then Just (advance (B8.length bs) st, ())
      else Nothing
 

@@ -32,7 +32,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
--- import Debug.Trace
+import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
@@ -292,7 +292,7 @@ listSpec =
   , blockFinalize = foldMap itemsToList . groupLists . containerChildren
   }
 
-itemsToList :: ([ListType], Seq (Container)) -> Blocks
+itemsToList :: ([ListType], Seq Container) -> Blocks
 itemsToList (ltypes, containers) =
   case containers of
     Seq.Empty -> mempty
@@ -865,7 +865,7 @@ pBlocks :: P Blocks
 pBlocks = skipMany processLine >> finalizeDocument
 
 -- | Return value is True if all continuations match.
-checkContinuations :: NonEmpty (Container) -> P Bool
+checkContinuations :: NonEmpty Container -> P Bool
 checkContinuations = go . reverse . NonEmpty.toList
  where
    go [] = return True
@@ -967,8 +967,7 @@ closeCurrentContainer = do
     _ :| [] -> error "Attempted to close root document container"
 
 {-# INLINE modifyContainers #-}
-modifyContainers :: (NonEmpty (Container)
-                 -> NonEmpty (Container)) -> P ()
+modifyContainers :: (NonEmpty Container -> NonEmpty Container) -> P ()
 modifyContainers f =
   modifyP $ \st -> st{ psContainerStack = f (psContainerStack st) }
 
@@ -1012,14 +1011,12 @@ finalizeChildren = foldMap finalize . containerChildren
 gobbleSpaceToIndent :: Int -> P ()
 gobbleSpaceToIndent indent = do
   curindent <- sourceColumn
-  case (curindent, indent) of
-    (cur, ind) | cur < ind ->
-         optional_ (spaceOrTab *> gobbleSpaceToIndent indent)
-    _ -> pure ()
+  when (curindent < indent) $
+     optional_ (spaceOrTab *> gobbleSpaceToIndent indent)
 
 {-# INLINE getTip #-}
 -- Get tip of container stack.
-getTip :: P (Container)
+getTip :: P Container
 getTip = NonEmpty.head <$> getsP psContainerStack
 
 {-# INLINE getContainerData #-}
