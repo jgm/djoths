@@ -37,6 +37,7 @@ module Djot.Parse
   , restOfLine
   , isWs
   , ws
+  , followedByWhitespace
   , spaceOrTab
 )
 where
@@ -366,3 +367,10 @@ spaceOrTab = skipSatisfyAscii (\c -> c == ' ' || c == '\t')
 -- | Skip 1 or more ASCII whitespace.
 ws :: Parser s ()
 ws = skipSatisfyAscii isWs *> skipAsciiWhile isWs
+
+-- | Next character is ASCII whitespace.
+followedByWhitespace :: Parser s ()
+followedByWhitespace = Parser $ \st ->
+  case peek st of
+    Just c | isWs c -> Just (st, ())
+    _ -> Nothing

@@ -138,20 +138,20 @@ pListStart = pBulletListStart <|> pDefinitionListStart <|> pOrderedListStart
 pBulletListStart :: P [ListType]
 pBulletListStart = do
   bulletchar <- satisfyAscii (\c -> c == '-' || c == '+' || c == '*')
-  lookahead ws
+  followedByWhitespace
   (do skipMany spaceOrTab
       asciiChar '['
       status <- (Complete <$ byteString "x]")
             <|> (Complete <$ byteString "X]")
             <|> (Incomplete <$ byteString " ]")
-      lookahead ws
+      followedByWhitespace
       pure [Task status])
    <|> pure [Bullet bulletchar]
 
 pDefinitionListStart :: P [ListType]
 pDefinitionListStart = do
   asciiChar ':'
-  lookahead ws
+  followedByWhitespace
   pure [Definition]
 
 groupLists :: Seq Container -> Seq ([ListType], Seq Container)
@@ -423,13 +423,13 @@ blockQuoteSpec =
   , blockType = Normal
   , blockStart = do
       asciiChar '>'
-      lookahead ws
+      followedByWhitespace
       skipMany spaceOrTab
       addContainer blockQuoteSpec ()
   , blockContinue = \_ -> do
       skipMany spaceOrTab
       asciiChar '>'
-      lookahead ws
+      followedByWhitespace
       skipMany spaceOrTab
       pure True
   , blockContainsBlock = Just Normal
@@ -575,7 +575,7 @@ headingSpec =
   , blockType = Normal
   , blockStart = do
       lev <- length <$> some (asciiChar '#')
-      lookahead ws
+      followedByWhitespace
       skipMany spaceOrTab
       closeContainingSections lev
       addContainer sectionSpec $ SectionData lev Nothing
