@@ -138,15 +138,15 @@ pListStart = pBulletListStart <|> pDefinitionListStart <|> pOrderedListStart
 pBulletListStart :: P [ListType]
 pBulletListStart = do
   bulletchar <- satisfyAscii (\c -> c == '-' || c == '+' || c == '*')
+  lookahead ws
   (do skipMany spaceOrTab
       asciiChar '['
       status <- (Complete <$ byteString "x]")
             <|> (Complete <$ byteString "X]")
             <|> (Incomplete <$ byteString " ]")
-      skipMany spaceOrTab
+      lookahead ws
       pure [Task status])
-   <|> (do lookahead ws
-           pure [Bullet bulletchar])
+   <|> pure [Bullet bulletchar]
 
 pDefinitionListStart :: P [ListType]
 pDefinitionListStart = do

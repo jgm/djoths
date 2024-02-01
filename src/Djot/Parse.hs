@@ -363,6 +363,6 @@ isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 spaceOrTab :: Parser s ()
 spaceOrTab = skipSatisfyAscii (\c -> c == ' ' || c == '\t')
 
--- | Skip ASCII whitespace.
+-- | Skip 1 or more ASCII whitespace.
 ws :: Parser s ()
-ws = skipAsciiWhile isWs
+ws = skipSatisfyAscii isWs *> skipAsciiWhile isWs
