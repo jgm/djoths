@@ -299,7 +299,7 @@ byteString bs = Parser $ \st ->
 -- returning the bytestring consumed.
 manyAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 manyAsciiWhile f = Parser $ \st ->
-  let bs = B8.takeWhile f (subject st)
+  let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
   in  Just (advance (B8.length bs) st, bs)
 
 -- | Skip 0 or more ASCII characters matching a predicate.
@@ -315,7 +315,7 @@ someAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 someAsciiWhile f = Parser $ \st ->
   if fmap f (peek st) == Just True
      then
-       let bs = B8.takeWhile f (subject st)
+       let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
        in  Just (advance (B8.length bs) st, bs)
      else Nothing
 
@@ -346,12 +346,12 @@ branch pa pb pc = Parser $ \st ->
 
 -- | Parse an end of line sequence.
 endline :: Parser s ()
-endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
+endline = asciiChar '\n' <|> (asciiChar '\r' *> asciiChar '\n')
+  -- branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 
--- | Return the rest of line (not including the end of line, though it is
--- consumed).
+-- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
-restOfLine = manyAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
+restOfLine = byteStringOf $ skipAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
 
 {-# INLINE isWs #-}
 -- | Is space, tab, `\r`, or `\n`.

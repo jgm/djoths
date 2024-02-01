@@ -32,7 +32,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
-import Debug.Trace
+-- import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
@@ -885,11 +885,7 @@ processLine = do
   -- check for new container starts and open if needed
   newContainersAdded <- tryContainerStarts
 
-  pure $! traceShowId $! newContainersAdded
-
   isBlank <- (True <$ lookahead pBlankLine) <|> pure False
-
-  pure $! traceShowId $! isBlank
 
   unless isBlank $ do
     -- determine if we have a lazy line
@@ -907,6 +903,7 @@ processLine = do
       blockStart paraSpec
 
   restline <- restOfLine
+
   -- if current container is a line container, add remainder of line
   modifyContainers $
     \(c :| rest) ->
