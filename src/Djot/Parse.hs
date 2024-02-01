@@ -359,9 +359,9 @@ isWs :: Char -> Bool
 isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 
 {-# INLINE spaceOrTab #-}
--- | Skip spaces or tabs.
+-- | Skip one space or tab.
 spaceOrTab :: Parser s ()
-spaceOrTab = skipAsciiWhile (\c -> c == ' ' || c == '\t')
+spaceOrTab = skipSatisfyAscii (\c -> c == ' ' || c == '\t')
 
 -- | Skip ASCII whitespace.
 ws :: Parser s ()

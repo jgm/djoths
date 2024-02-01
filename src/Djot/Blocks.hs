@@ -32,6 +32,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
+import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
@@ -39,17 +40,12 @@ parseDoc opts bs = do
                         , psContainerStack =
                             NonEmpty.fromList
                              [emptyContainer{ containerSpec = docSpec }]
-                        , psCurrentLine = 0
-                        , psCurrentLineStart = 0
                         , psReferenceMap = mempty
                         , psNoteMap = mempty
                         , psAttributes = mempty
                         , psIds = mempty
                         } bs of
-    Just (off, doc)
-      | off < B.length bs -> Left $ "Unconsumed input: " <>
-                                      show (B.take 50 $ B.drop off bs)
-      | otherwise -> Right doc
+    Just (_, doc) -> Right doc
     Nothing -> Left "Parse failure."
 
 data BlockType =
@@ -842,8 +838,6 @@ data PState =
   PState
   { psParseOptions :: ParseOptions
   , psContainerStack :: NonEmpty Container
-  , psCurrentLine :: Int
-  , psCurrentLineStart :: Int
   , psReferenceMap :: ReferenceMap
   , psNoteMap :: NoteMap
   , psAttributes :: Attr
@@ -860,7 +854,7 @@ modifyP = updateState
 
 pDoc :: P Doc
 pDoc = do
-  bls <- pBlocks
+  bls <- pBlocks <* eof
   notemap <- getsP psNoteMap
   refmap <- getsP psReferenceMap
   pure $ Doc{ docBlocks = bls
@@ -869,12 +863,6 @@ pDoc = do
 
 pBlocks :: P Blocks
 pBlocks = skipMany processLine >> finalizeDocument
-
-incrementCurrentLine :: P ()
-incrementCurrentLine = do
-  pos <- getOffset
-  modifyP $ \st -> st{ psCurrentLine = psCurrentLine st + 1
-                     , psCurrentLineStart = pos }
 
 -- | Return value is True if all continuations match.
 checkContinuations :: NonEmpty (Container) -> P Bool
@@ -890,7 +878,6 @@ checkContinuations = go . reverse . NonEmpty.toList
 {-# INLINE processLine #-}
 processLine :: P ()
 processLine = do
-  incrementCurrentLine
   -- check continuations for open containers and close any that don't match
   containers <- getsP psContainerStack
   allContainersMatch <- checkContinuations containers
@@ -898,7 +885,11 @@ processLine = do
   -- check for new container starts and open if needed
   newContainersAdded <- tryContainerStarts
 
+  pure $! traceShowId $! newContainersAdded
+
   isBlank <- (True <$ lookahead pBlankLine) <|> pure False
+
+  pure $! traceShowId $! isBlank
 
   unless isBlank $ do
     -- determine if we have a lazy line
@@ -970,7 +961,7 @@ closeCurrentContainer = do
                _ -> pure ()
              c' <- blockClose (containerSpec c) c
              pure (c':|rest)
-  curline <- getsP psCurrentLine
+  curline <- sourceLine
   case cs' of
     c :| (d:rest) -> modifyP $
         \st -> st{ psContainerStack =
@@ -987,7 +978,7 @@ modifyContainers f =
 {-# INLINE addContainer #-}
 addContainer :: Typeable a => BlockSpec -> a -> P ()
 addContainer bspec bdata = do
-  curline <- getsP psCurrentLine
+  curline <- sourceLine
   attr <- getsP psAttributes
   let newcontainer = emptyContainer { containerSpec = bspec
                                     , containerStartLine = curline
