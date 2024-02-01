@@ -737,20 +737,18 @@ referenceDefinitionSpec =
       asciiChar ':'
       skipMany spaceOrTab
       addContainer referenceDefinitionSpec (normalizeLabel label)
-  , blockContinue = \container ->
-      (True <$ skipSome spaceOrTab `notFollowedBy` endline)
-      <|>
-      -- if we're done, we update reference map:
-      (do let label = getContainerData container
-          let attr = containerAttr container
-          let dest = B.filter (> 32) . fold $ containerText container
-          modifyP $ \st ->
-            st{ psReferenceMap = insertReference label (dest, attr)
-                                     (psReferenceMap st) }
-          pure False)
+  , blockContinue = \_ ->
+      True <$ skipSome spaceOrTab `notFollowedBy` endline
   , blockContainsBlock = Nothing
   , blockContainsLines = True
-  , blockClose = pure
+  , blockClose = \container -> do
+      let label = getContainerData container
+      let attr = containerAttr container
+      let dest = B.filter (> 32) . fold $ containerText container
+      modifyP $ \st ->
+        st{ psReferenceMap = insertReference label (dest, attr)
+                                 (psReferenceMap st) }
+      pure container
   , blockFinalize = const mempty
   }
 
