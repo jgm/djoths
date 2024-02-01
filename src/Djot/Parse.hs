@@ -27,13 +27,17 @@ module Djot.Parse
   , byteString
   , someAsciiWhile
   , manyAsciiWhile
+  , skipAsciiWhile
   , takeRest
   , getOffset
   , sourceLine
   , sourceColumn
   , branch
   , endline
-  , takeLine
+  , restOfLine
+  , isWs
+  , ws
+  , spaceOrTab
 )
 where
 
@@ -41,7 +45,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Control.Applicative
-import Control.Monad (void)
+import Control.Monad (void, MonadPlus(..))
 import Data.Bifunctor (first)
 import Data.Char (chr)
 import Data.Bits
@@ -80,6 +84,10 @@ instance Alternative (Parser s) where
     case runParser f s of
       Just (s', x) -> Just (s', x)
       Nothing -> runParser g s
+
+instance MonadPlus (Parser s) where
+  mzero = empty
+  mplus = (<|>)
 
 data ParserState a =
   ParserState
@@ -264,6 +272,12 @@ manyAsciiWhile f = Parser $ \st ->
   let bs = B8.takeWhile f (subject st)
   in  Just (advance (B8.length bs) st, bs)
 
+skipAsciiWhile :: (Char -> Bool) -> Parser s ()
+skipAsciiWhile f = Parser $ \st ->
+  case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
+    Nothing -> Nothing
+    Just i -> Just (advance i st, ())
+
 someAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 someAsciiWhile f = Parser $ \st ->
   if fmap f (peek st) == Just True
@@ -294,6 +308,16 @@ branch pa pb pc = Parser $ \st ->
 endline :: Parser s ()
 endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 
-takeLine :: Parser s ByteString
-takeLine = manyAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
+restOfLine :: Parser s ByteString
+restOfLine = manyAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
 
+{-# INLINE isWs #-}
+isWs :: Char -> Bool
+isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
+
+{-# INLINE spaceOrTab #-}
+spaceOrTab :: Parser s ()
+spaceOrTab = skipAsciiWhile (\c -> c == ' ' || c == '\t')
+
+ws :: Parser s ()
+ws = skipAsciiWhile isWs

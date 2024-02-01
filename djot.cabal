@@ -31,6 +31,7 @@ Library
     exposed-modules:  Djot
                       Djot.AST
     other-modules:    Djot.FlatParse
+                      Djot.Parse
                       Djot.Options
                       Djot.Attributes
                       Djot.Inlines
