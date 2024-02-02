@@ -260,7 +260,7 @@ fails pa = Parser $ \st ->
     Nothing -> Just (st, ())
 
 -- | Always fails.
-failed :: Parser s ()
+failed :: Parser s a
 failed = Parser $ const Nothing
 
 -- | Returns result of parse together with the bytestring
