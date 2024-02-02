@@ -176,7 +176,7 @@ pSpecial = do
                        _ -> isSpecial)
   if c == '\r'
      then pure mempty
-     else pure $ str $ strToUtf8 [c]
+     else pure $ str $ B8.singleton c
 
 pWords :: P Inlines
 pWords = str <$> byteStringOf (skipSome (skipSatisfyAscii (not . isSpecial)))
