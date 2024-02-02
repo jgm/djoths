@@ -27,7 +27,8 @@ module Djot.Parse
   , byteString
   , someAsciiWhile
   , manyAsciiWhile
-  , skipAsciiWhile
+  , skipManyAsciiWhile
+  , skipSomeAsciiWhile
   , takeRest
   , getOffset
   , sourceLine
@@ -307,13 +308,6 @@ manyAsciiWhile f = Parser $ \st ->
   let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
   in  Just (advance (B8.length bs) st, bs)
 
--- | Skip 0 or more ASCII characters matching a predicate.
-skipAsciiWhile :: (Char -> Bool) -> Parser s ()
-skipAsciiWhile f = Parser $ \st ->
-  case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
-    Nothing -> Nothing
-    Just i -> Just (advance i st, ())
-
 -- | Consume 1 or more ASCII characters matching a predicate,
 -- returning the bytestring consumed.
 someAsciiWhile :: (Char -> Bool) -> Parser s ByteString
@@ -322,6 +316,23 @@ someAsciiWhile f = Parser $ \st ->
      then
        let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
        in  Just (advance (B8.length bs) st, bs)
+     else Nothing
+
+-- | Skip 0 or more ASCII characters matching a predicate.
+skipManyAsciiWhile :: (Char -> Bool) -> Parser s ()
+skipManyAsciiWhile f = Parser $ \st ->
+  case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
+    Nothing -> Just (advance (B8.length (subject st) - offset st) st, ())
+    Just i -> Just (advance i st, ())
+
+-- | Skip 1 or more ASCII characters matching a predicate.
+skipSomeAsciiWhile :: (Char -> Bool) -> Parser s ()
+skipSomeAsciiWhile f = Parser $ \st ->
+  if fmap f (current st) == Just True
+     then
+       case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
+         Nothing -> Just (advance (B8.length (subject st) - offset st) st, ())
+         Just i -> Just (advance i st, ())
      else Nothing
 
 -- | Returns rest of input and moves to eof.
@@ -355,7 +366,7 @@ endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 
 -- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
-restOfLine = byteStringOf $ skipAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
+restOfLine = byteStringOf $ skipManyAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
 
 {-# INLINE isWs #-}
 -- | Is space, tab, `\r`, or `\n`.
@@ -369,7 +380,7 @@ spaceOrTab = skipSatisfyAscii (\c -> c == ' ' || c == '\t')
 
 -- | Skip 1 or more ASCII whitespace.
 ws :: Parser s ()
-ws = skipSatisfyAscii isWs *> skipAsciiWhile isWs
+ws = skipSomeAsciiWhile isWs
 
 -- | Next character is ASCII whitespace.
 followedByWhitespace :: Parser s ()
