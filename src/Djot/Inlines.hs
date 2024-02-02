@@ -85,9 +85,6 @@ data Delim = Delim Bool Char
 
 type P = Parser ParserState
 
--- for mutable state, can do something like:
--- type P s = ParserST s (STRef s PState) String
-
 pInlines :: P Inlines
 pInlines = skipMany ws *> (consolidate . mconcat <$> many pInline)
 
