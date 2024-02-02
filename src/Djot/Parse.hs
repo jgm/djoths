@@ -46,13 +46,14 @@ module Djot.Parse
 )
 where
 
+import Data.Word (Word8)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Control.Applicative
 import Control.Monad (void, MonadPlus(..))
 import Data.Bifunctor (first)
-import Data.Char (chr)
+import Data.Char (chr, ord)
 import Data.Bits
 import Data.Maybe (fromMaybe)
 import qualified Data.Text.Encoding as TE
@@ -120,18 +121,29 @@ parse parser ustate bs =
 
 -- | Given a number of bytes, advances the offset and updates line/column.
 advance :: Int -> ParserState s -> ParserState s
-advance !n st' =
-  B.foldl' go st' bs
+advance !n st = advanceByteString bs st
  where
-   bs = B8.take n $! B8.drop (offset st') (subject st')
+   bs = B8.take n $! B8.drop (offset st) (subject st)
+
+-- | Advance the offset and line/column for consuming a bytestring.
+advanceByteString :: ByteString -> ParserState s -> ParserState s
+advanceByteString bs st =
+  B.foldl' go st bs
+ where
+   go = flip advanceByte
+
+-- | Advance the offset and line/column for consuming a given byte.
+advanceByte :: Word8 -> ParserState s -> ParserState s
+advanceByte = go
+ where
    -- newline
-   go st 10 = st{ offset = offset st + 1
+   go 10 st = st{ offset = offset st + 1
                 , line = line st + 1
                 , column = 0 }
    -- tab
-   go st 9 = st{ offset = offset st + 1
+   go 9 st = st{ offset = offset st + 1
                , column = column st + (4 - (column st `mod` 4)) }
-   go st !w
+   go !w st
      | w < 0x80 = st{ offset = offset st + 1
                     , column = column st + 1 }
      -- utf8 multibyte: only count byte 1:
@@ -162,14 +174,14 @@ skip n = Parser $ \st ->
 satisfyAscii :: (Char -> Bool) -> Parser s Char
 satisfyAscii f = Parser $ \st ->
   case current st of
-    Just c | f c -> Just (advance 1 st, c)
+    Just c | f c -> Just (advanceByte (toByte c) st, c)
     _ -> Nothing
 
 -- | Skip an ASCII Char satisfying a predicate.
 skipSatisfyAscii :: (Char -> Bool) -> Parser s ()
 skipSatisfyAscii f = Parser $ \st ->
   case current st of
-    Just c | f c -> Just (advance 1 st, ())
+    Just c | f c -> Just (advanceByte (toByte c) st, ())
     _ -> Nothing
 
 -- | Parse a (possibly multibyte) Char satisfying a predicate.
@@ -185,7 +197,7 @@ satisfy f = Parser $ \st ->
     Just w
       | w < 0b10000000
       , c <- chr (fromIntegral w)
-      , f c -> Just (advance 1 st, chr (fromIntegral w))
+      , f c -> Just (advanceByte (toByte c) st, chr (fromIntegral w))
       | b1 .&. 0b11100000 == 0b11000000
       , b2 >= 0b10000000 -> Just (advance 2 st, chr (toCodePoint2 b1 b2))
       | b1 .&. 0b11110000 == 0b11100000
@@ -219,7 +231,7 @@ anyChar = satisfy (const True)
 asciiChar :: Char -> Parser s ()
 asciiChar c = Parser $ \st ->
   case current st of
-    Just d | d == c -> Just (advance 1 st, ())
+    Just d | d == c -> Just (advanceByte (toByte c) st, ())
     _ -> Nothing
 
 -- | Parse any ASCII character.
@@ -303,7 +315,7 @@ optional_ pa = void pa <|> pure ()
 byteString :: ByteString -> Parser s ()
 byteString bs = Parser $ \st ->
   if bs `B8.isPrefixOf` (B8.drop (offset st) (subject st))
-     then Just (advance (B8.length bs) st, ())
+     then Just (advanceByteString bs st, ())
      else Nothing
 
 -- | Consume 0 or more ASCII characters matching a predicate,
@@ -311,7 +323,7 @@ byteString bs = Parser $ \st ->
 manyAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 manyAsciiWhile f = Parser $ \st ->
   let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
-  in  Just (advance (B8.length bs) st, bs)
+  in  Just (advanceByteString bs st, bs)
 
 -- | Consume 1 or more ASCII characters matching a predicate,
 -- returning the bytestring consumed.
@@ -320,7 +332,7 @@ someAsciiWhile f = Parser $ \st ->
   if fmap f (current st) == Just True
      then
        let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
-       in  Just (advance (B8.length bs) st, bs)
+       in  Just (advanceByteString bs st, bs)
      else Nothing
 
 -- | Skip 0 or more ASCII characters matching a predicate.
@@ -342,8 +354,9 @@ skipSomeAsciiWhile f = Parser $ \st ->
 
 -- | Returns rest of input and moves to eof.
 takeRest :: Parser s ByteString
-takeRest = Parser $ \st -> Just (st{ offset = B8.length (subject st) },
-                                 B8.drop (offset st) (subject st) )
+takeRest = Parser $ \st ->
+  Just (st{ offset = B8.length (subject st) }
+       , B8.drop (offset st) (subject st) )
 
 -- | Returns byte offset in input.
 getOffset :: Parser s Int
@@ -404,3 +417,6 @@ strToUtf8 = TE.encodeUtf8 . T.pack
 
 utf8ToStr :: ByteString -> String
 utf8ToStr = T.unpack . TE.decodeUtf8Lenient
+
+toByte :: Char -> Word8
+toByte = fromIntegral . ord
