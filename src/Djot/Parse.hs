@@ -26,10 +26,6 @@ module Djot.Parse
   , notFollowedBy
   , optional_
   , byteString
-  , someAsciiWhile
-  , manyAsciiWhile
-  , skipManyAsciiWhile
-  , skipSomeAsciiWhile
   , takeRest
   , getOffset
   , sourceLine
@@ -316,40 +312,6 @@ byteString :: ByteString -> Parser s ()
 byteString bs = Parser $ \st ->
   if bs `B8.isPrefixOf` (B8.drop (offset st) (subject st))
      then Just (advanceByteString bs st, ())
-     else Nothing
-
--- | Consume 0 or more ASCII characters matching a predicate,
--- returning the bytestring consumed.
-manyAsciiWhile :: (Char -> Bool) -> Parser s ByteString
-manyAsciiWhile f = Parser $ \st ->
-  let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
-  in  Just (advanceByteString bs st, bs)
-
--- | Consume 1 or more ASCII characters matching a predicate,
--- returning the bytestring consumed.
-someAsciiWhile :: (Char -> Bool) -> Parser s ByteString
-someAsciiWhile f = Parser $ \st ->
-  if fmap f (current st) == Just True
-     then
-       let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
-       in  Just (advanceByteString bs st, bs)
-     else Nothing
-
--- | Skip 0 or more ASCII characters matching a predicate.
-skipManyAsciiWhile :: (Char -> Bool) -> Parser s ()
-skipManyAsciiWhile f = Parser $ \st ->
-  case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
-    Nothing -> Just (advance (B8.length (subject st) - offset st) st, ())
-    Just i -> Just (advance i st, ())
-
--- | Skip 1 or more ASCII characters matching a predicate.
-skipSomeAsciiWhile :: (Char -> Bool) -> Parser s ()
-skipSomeAsciiWhile f = Parser $ \st ->
-  if fmap f (current st) == Just True
-     then
-       case B8.findIndex (not . f) (B8.drop (offset st) (subject st)) of
-         Nothing -> Just (advance (B8.length (subject st) - offset st) st, ())
-         Just i -> Just (advance i st, ())
      else Nothing
 
 -- | Returns rest of input and moves to eof.

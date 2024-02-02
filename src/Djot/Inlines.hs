@@ -290,7 +290,7 @@ pBetween c constructor = do
 pTicks :: P Int
 pTicks = do
   sp <- getOffset
-  skipSomeAsciiWhile (=='`')
+  skipSome (asciiChar '`')
   ep <- getOffset
   pure (ep - sp)
 
@@ -298,9 +298,9 @@ pVerbatim :: P Inlines
 pVerbatim = do
   numticks <- pTicks
   let ender = pTicks >>= guard . (== numticks)
-  let content = skipSomeAsciiWhile (\c -> c /= '`' && c /= '\\') <|>
+  let content = skipSome (satisfyAscii (\c -> c /= '`' && c /= '\\')) <|>
                  (asciiChar '\\' <* anyChar) <|>
-                 (fails ender *> skipSomeAsciiWhile (== '`'))
+                 (fails ender *> skipSome (asciiChar '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
   (rawInline <$> pRawAttribute <*> pure bs) <|> pure (verbatim bs)
 
