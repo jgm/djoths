@@ -233,21 +233,6 @@ pMath = do
                         DisplayMath -> str "$$"
                         _ -> str "$") <> verb
 
--- We use bits in state to track when we've had an opening for
--- an inline container:
--- bit  container require braces
--- ---  --------  --------------
--- 10   *         f
--- 11   _         f
--- 12   ^         f
--- 13   ~         f
--- 14   =         t
--- 15   +         t
--- 16   -         t
--- 17  reserved
--- 18  set if parsing inside '['
--- 19  set if opener had '{'
-
 {-# INLINE bracesRequired #-}
 bracesRequired :: Char -> Bool
 bracesRequired '=' = True
