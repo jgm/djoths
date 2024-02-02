@@ -179,7 +179,7 @@ pSpecial = do
      else pure $ str $ strToUtf8 [c]
 
 pWords :: P Inlines
-pWords = str <$> byteStringOf (skipSome (satisfyAscii (not . isSpecial)))
+pWords = str <$> byteStringOf (skipSome (skipSatisfyAscii (not . isSpecial)))
 
 pEscaped :: P Inlines
 pEscaped = do
@@ -300,7 +300,7 @@ pVerbatim :: P Inlines
 pVerbatim = do
   numticks <- pTicks
   let ender = pTicks >>= guard . (== numticks)
-  let content = skipSome (satisfyAscii (\c -> c /= '`' && c /= '\\')) <|>
+  let content = skipSome (skipSatisfyAscii (\c -> c /= '`' && c /= '\\')) <|>
                  (asciiChar '\\' <* anyChar) <|>
                  (fails ender *> skipSome (asciiChar '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
