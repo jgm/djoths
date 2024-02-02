@@ -18,7 +18,7 @@ import qualified Djot.FlatParse as FP
 import Djot.AST
 import Djot.Inlines (parseInlines, parseTableCells)
 import Djot.Options (ParseOptions(..))
-import Djot.Attributes (pAttributes)
+import Djot.Attributes (parseAttributes, AttrParserState, AttrParseResult(..))
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import qualified Data.ByteString as B
@@ -700,23 +700,23 @@ attrSpec =
            -- see if we've already got our attributes. This isn't
            -- too efficient, because we end up parsing multiple times (again
            -- at blockClose). TODO do better.
-           case FP.runParser pAttributes () 0 (fold $ containerText container) of
-             FP.OK _ _ _ -> pure False
+           case parseAttributes Nothing (fold $ containerText container) of
+             Done _ -> pure False
              _ -> pure True -- not yet: keep going!
   , blockContainsBlock = Nothing
   , blockContainsLines = True
-  , blockClose = \container ->
-      case FP.runParser pAttributes () 0 (fold $ containerText container) of
-        FP.OK attr _ unconsumed
-          | B8.all isWs unconsumed -> do
+  , blockClose = \container -> do
+      let bs = fold $ containerText container
+      case parseAttributes Nothing bs of
+        Done (attr, off)
+          | B8.all isWs (B8.drop off bs) -> do
              modifyP $ \st -> st{ psAttributes = psAttributes st <> attr }
              pure container
           | otherwise -> do
              ils <- parseTextLines container
              pure $ container{ containerSpec = paraSpec
                              , containerInlines = ils }
-        FP.Err e -> error e
-        FP.Fail -> do  -- could not parse lines as attribute, treat as Para
+        _ -> do  -- could not parse lines as attribute, treat as Para
           ils <- parseTextLines container
           pure $ container{ containerSpec = paraSpec
                           , containerInlines = ils }
