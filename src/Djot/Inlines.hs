@@ -195,7 +195,7 @@ pEscaped = do
                              <|> if c == ' '
                                     then pure nonBreakingSpace
                                     else pure $ str "\\\t"
-    _ -> pure $ str $ strToUtf8 [c]
+    _ -> pure $ str $ B8.singleton c
 
 pHardBreak :: P Inlines
 pHardBreak = do -- assumes we've parsed \ already
@@ -456,8 +456,8 @@ pDoubleQuote = (do
  <|> (closeDoubleQuote <$ asciiChar '"')
 
 openDoubleQuote, closeDoubleQuote :: Inlines
-openDoubleQuote = str (strToUtf8 "\x201C")
-closeDoubleQuote = str (strToUtf8 "\x201D")
+openDoubleQuote = str "\226\128\156" -- utf8 0x201C
+closeDoubleQuote = str "\226\128\157" -- utf8 0x201D
 
 pOpenSingleQuote :: P ()
 pOpenSingleQuote = do
@@ -490,15 +490,15 @@ pSingleQuote = (do
  <|> (closeSingleQuote <$ asciiChar '\'')
 
 closeSingleQuote :: Inlines
-closeSingleQuote = str (strToUtf8 "\x2019")
+closeSingleQuote = str "\226\128\153" -- utf8 0x2019
 
 pHyphens :: P Inlines
 pHyphens = do
   numHyphens <- length <$> some hyphen
   pure $ str $ go numHyphens
     where
-     emdash = strToUtf8 "\x2014"
-     endash = strToUtf8 "\x2013"
+     emdash = "\226\128\148" -- utf8 0x2014
+     endash = "\226\128\147" -- utf8 0x2013
      hyphen = asciiChar '-' `notFollowedBy` asciiChar '}'
      go 1 = "-"
      go n | n `mod` 3 == 0
@@ -514,4 +514,4 @@ pHyphens = do
           = emdash <> go (n - 3)
 
 pEllipses :: P Inlines
-pEllipses = str (strToUtf8 "\x2026") <$ byteString "..."
+pEllipses = str "\226\128\166" {- utf8 0x2026 -} <$ byteString "..."
