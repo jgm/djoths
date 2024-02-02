@@ -111,8 +111,11 @@ pInline :: P Inlines
 pInline = pInline' >>= pOptionalAttributes
 
 pOptionalAttributes :: Inlines -> P Inlines
-pOptionalAttributes (Many ils) =
- (lookahead (satisfyAscii (== '{')) *> do
+pOptionalAttributes (Many ils) = pAddAttributes (Many ils) <|> pure (Many ils)
+
+pAddAttributes :: Inlines -> P Inlines
+pAddAttributes (Many ils) = do
+  lookahead $ asciiChar '{'
   attr <- mconcat <$> some pAttributes
   case attr of
     Attr [] -> pure (Many ils)
@@ -127,8 +130,7 @@ pOptionalAttributes (Many ils) =
                                    Node attr' (Str front) Seq.|>
                                    Node attr (Str lastword))
            ils' Seq.:> Node attr' il ->
-             pure $ Many (ils' Seq.|> Node (attr' <> attr) il))
-  <|> pure (Many ils)
+             pure $ Many (ils' Seq.|> Node (attr' <> attr) il)
 
 pInline' :: P Inlines
 pInline' = do
@@ -360,7 +362,7 @@ pImage = do
   case res of
     Left ils -> pure (str "!" <> ils)
     Right ils ->
-            ((str "!" <> span_ ils) <$ lookahead (asciiChar '{'))
+            ((str "!" <>) <$> pAddAttributes (span_ ils))
         <|> (image ils <$> (pDestination <|> pReference raw))
         <|> pure (str "![" <> ils <> str "]")
 
