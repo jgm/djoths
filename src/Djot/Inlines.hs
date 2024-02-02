@@ -266,7 +266,8 @@ pCloser = do
                || (testBit i 15 && d == '+')
                || (testBit i 16 && d == '-')
                || (testBit i 18 && d == ']'))
-       let afterws = not $ testBit i 9
+       mblastc <- peekBack
+       let afterws = maybe True isWs mblastc
        let openerHadBrace = testBit i 19
        when ( afterws || openerHadBrace ) $ asciiChar '}'
 
