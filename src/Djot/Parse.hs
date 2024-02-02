@@ -385,7 +385,8 @@ endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 -- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
 restOfLine =
-  byteStringOf $ skipManyAsciiWhile (\c -> c /= '\n' && c /= '\r') <* endline
+  byteStringOf $ skipMany (satisfyAscii (\c -> c /= '\n' && c /= '\r'))
+                   <* endline
 
 {-# INLINE isWs #-}
 -- | Is space, tab, `\r`, or `\n`.
@@ -404,7 +405,7 @@ spaceOrTab = Parser $ \st ->
 
 -- | Skip 1 or more ASCII whitespace.
 ws :: Parser s ()
-ws = skipSomeAsciiWhile isWs
+ws = skipSome (satisfyAscii isWs)
 
 -- | Next character is ASCII whitespace.
 followedByWhitespace :: Parser s ()
