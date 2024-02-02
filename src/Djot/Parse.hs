@@ -380,7 +380,13 @@ isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 {-# INLINE spaceOrTab #-}
 -- | Skip one space or tab.
 spaceOrTab :: Parser s ()
-spaceOrTab = skipSatisfyAscii (\c -> c == ' ' || c == '\t')
+spaceOrTab = Parser $ \st ->
+  case current st of
+    Just ' ' -> Just (st{ offset = offset st + 1
+                        , column = column st + 1 }, ())
+    Just '\t' -> Just (st{ offset = offset st + 1
+                         , column = column st + (4 - (column st `mod` 4)) }, ())
+    _ -> Nothing
 
 -- | Skip 1 or more ASCII whitespace.
 ws :: Parser s ()
