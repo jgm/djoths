@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE StrictData #-}
 module Djot.Parse
@@ -119,10 +120,10 @@ parse parser ustate bs =
 
 -- | Given a number of bytes, advances the offset and updates line/column.
 advance :: Int -> ParserState s -> ParserState s
-advance n st' =
+advance !n st' =
   B.foldl' go st' bs
  where
-   bs = B8.take n (B8.drop (offset st') (subject st'))
+   bs = B8.take n $! B8.drop (offset st') (subject st')
    -- newline
    go st 10 = st{ offset = offset st + 1
                 , line = line st + 1
@@ -130,7 +131,7 @@ advance n st' =
    -- tab
    go st 9 = st{ offset = offset st + 1
                , column = column st + (4 - (column st `mod` 4)) }
-   go st w
+   go st !w
      | w < 0x80 = st{ offset = offset st + 1
                     , column = column st + 1 }
      -- utf8 multibyte: only count byte 1:
@@ -377,7 +378,6 @@ restOfLine = byteStringOf $ skipManyAsciiWhile (\c -> c /= '\n' && c /= '\r') <*
 isWs :: Char -> Bool
 isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 
-{-# INLINE spaceOrTab #-}
 -- | Skip one space or tab.
 spaceOrTab :: Parser s ()
 spaceOrTab = Parser $ \st ->
