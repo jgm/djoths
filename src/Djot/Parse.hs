@@ -52,7 +52,8 @@ import Data.Bifunctor (first)
 import Data.Char (chr, ord)
 import Data.Bits
 import Data.Maybe (fromMaybe)
-import qualified Data.Text.Encoding as TE
+import Data.Text.Encoding (decodeUtf8With, encodeUtf8)
+import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.Text as T
 -- import Text.Printf
 -- import Debug.Trace
@@ -377,10 +378,10 @@ followedByWhitespace = Parser $ \st ->
     _ -> Nothing
 
 strToUtf8 :: String -> ByteString
-strToUtf8 = TE.encodeUtf8 . T.pack
+strToUtf8 = encodeUtf8 . T.pack
 
 utf8ToStr :: ByteString -> String
-utf8ToStr = T.unpack . TE.decodeUtf8Lenient
+utf8ToStr = T.unpack . decodeUtf8With lenientDecode
 
 toByte :: Char -> Word8
 toByte = fromIntegral . ord
