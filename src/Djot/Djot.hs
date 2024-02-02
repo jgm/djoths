@@ -13,7 +13,7 @@ import Djot.AST
 import Djot.Options (RenderOptions(..))
 import Djot.Blocks (toIdentifier)
 import Data.Char (ord, chr)
-import Djot.FlatParse (utf8ToStr)
+import Djot.Parse (utf8ToStr)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Sequence as Seq

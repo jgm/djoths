@@ -14,7 +14,6 @@ import Text.Read (readMaybe)
 import Data.Char (ord, isAsciiLower, isAsciiUpper)
 import Data.Foldable as F
 import Djot.Parse
-import qualified Djot.FlatParse as FP
 import Djot.AST
 import Djot.Inlines (parseInlines, parseTableCells)
 import Djot.Options (ParseOptions(..))
@@ -1044,7 +1043,7 @@ toIdentifier :: ByteString -> ByteString
 toIdentifier bs =
   if null parts
      then "sec"
-     else FP.strToUtf8 $ intercalate "-" parts
+     else strToUtf8 $ intercalate "-" parts
  where
    isSym = (`elem` ("][~!@#$%^&*(){}`,.<>\\|=+/" :: [Char]))
-   parts = words $ map (\c -> if isSym c then ' ' else c) $ FP.utf8ToStr bs
+   parts = words $ map (\c -> if isSym c then ' ' else c) $ utf8ToStr bs

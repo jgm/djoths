@@ -11,7 +11,7 @@ where
 
 import Djot.AST
 import Data.Tuple (swap)
-import Djot.FlatParse (strToUtf8)
+import Djot.Parse (strToUtf8)
 import Djot.Options (RenderOptions(..))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B

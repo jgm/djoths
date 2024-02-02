@@ -36,10 +36,12 @@ module Djot.Parse
   , branch
   , endline
   , restOfLine
-  , isWs
   , ws
   , followedByWhitespace
   , spaceOrTab
+  , isWs
+  , strToUtf8
+  , utf8ToStr
 )
 where
 
@@ -52,6 +54,8 @@ import Data.Bifunctor (first)
 import Data.Char (chr)
 import Data.Bits
 import Data.Maybe (fromMaybe)
+import qualified Data.Text.Encoding as TE
+import qualified Data.Text as T
 -- import Text.Printf
 -- import Debug.Trace
 
@@ -388,3 +392,9 @@ followedByWhitespace = Parser $ \st ->
   case current st of
     Just c | isWs c -> Just (st, ())
     _ -> Nothing
+
+strToUtf8 :: String -> ByteString
+strToUtf8 = TE.encodeUtf8 . T.pack
+
+utf8ToStr :: ByteString -> String
+utf8ToStr = T.unpack . TE.decodeUtf8Lenient

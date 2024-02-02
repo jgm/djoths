@@ -14,7 +14,6 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Djot.FlatParse as FP
 import Djot.Parse
 import Djot.Attributes (pAttributes)
 import Djot.AST
@@ -178,7 +177,7 @@ pSpecial = do
                        _ -> isSpecial)
   if c == '\r'
      then pure mempty
-     else pure $ str $ FP.strToUtf8 [c]
+     else pure $ str $ strToUtf8 [c]
 
 pWords :: P Inlines
 pWords = str <$> someAsciiWhile (not . isSpecial)
@@ -197,7 +196,7 @@ pEscaped = do
                              <|> if c == ' '
                                     then pure nonBreakingSpace
                                     else pure $ str "\\\t"
-    _ -> pure $ str $ FP.strToUtf8 [c]
+    _ -> pure $ str $ strToUtf8 [c]
 
 pHardBreak :: P Inlines
 pHardBreak = do -- assumes we've parsed \ already
@@ -458,8 +457,8 @@ pDoubleQuote = (do
  <|> (closeDoubleQuote <$ asciiChar '"')
 
 openDoubleQuote, closeDoubleQuote :: Inlines
-openDoubleQuote = str (FP.strToUtf8 "\x201C")
-closeDoubleQuote = str (FP.strToUtf8 "\x201D")
+openDoubleQuote = str (strToUtf8 "\x201C")
+closeDoubleQuote = str (strToUtf8 "\x201D")
 
 pOpenSingleQuote :: P ()
 pOpenSingleQuote = do
@@ -492,15 +491,15 @@ pSingleQuote = (do
  <|> (closeSingleQuote <$ asciiChar '\'')
 
 closeSingleQuote :: Inlines
-closeSingleQuote = str (FP.strToUtf8 "\x2019")
+closeSingleQuote = str (strToUtf8 "\x2019")
 
 pHyphens :: P Inlines
 pHyphens = do
   numHyphens <- length <$> some hyphen
   pure $ str $ go numHyphens
     where
-     emdash = FP.strToUtf8 "\x2014"
-     endash = FP.strToUtf8 "\x2013"
+     emdash = strToUtf8 "\x2014"
+     endash = strToUtf8 "\x2013"
      hyphen = asciiChar '-' `notFollowedBy` asciiChar '}'
      go 1 = "-"
      go n | n `mod` 3 == 0
@@ -516,4 +515,4 @@ pHyphens = do
           = emdash <> go (n - 3)
 
 pEllipses :: P Inlines
-pEllipses = str (FP.strToUtf8 "\x2026") <$ byteString "..."
+pEllipses = str (strToUtf8 "\x2026") <$ byteString "..."
