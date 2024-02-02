@@ -177,7 +177,7 @@ pSpecial = do
      else pure $ str $ strToUtf8 [c]
 
 pWords :: P Inlines
-pWords = str <$> someAsciiWhile (not . isSpecial)
+pWords = str <$> byteStringOf (skipSome (satisfyAscii (not . isSpecial)))
 
 pEscaped :: P Inlines
 pEscaped = do
