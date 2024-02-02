@@ -177,8 +177,7 @@ pSpecial = do
      else pure $ str $ FP.strToUtf8 [c]
 
 pWords :: P Inlines
-pWords =
-  str <$> byteStringOf (skipSome (skipSatisfyAscii (not . isSpecial)))
+pWords = str <$> someAsciiWhile (not . isSpecial)
 
 pEscaped :: P Inlines
 pEscaped = do
@@ -329,20 +328,17 @@ pBetween c constructor = do
 pTicks :: P Int
 pTicks = do
   sp <- getOffset
-  asciiChar '`'
-  skipAsciiWhile (=='`')
+  skipSomeAsciiWhile (=='`')
   ep <- getOffset
-  pure (sp - ep)
+  pure (ep - sp)
 
 pVerbatim :: P Inlines
 pVerbatim = do
   numticks <- pTicks
-  let ender = do
-         n <- pTicks
-         unless (n == numticks) failed
-  let content = skipSome (skipSatisfyAscii (\c -> c /= '`' && c /= '\\')) <|>
+  let ender = pTicks >>= guard . (== numticks)
+  let content = skipSomeAsciiWhile (\c -> c /= '`' && c /= '\\') <|>
                  (asciiChar '\\' <* anyChar) <|>
-                 (fails ender *> skipSome (asciiChar '`'))
+                 (fails ender *> skipSomeAsciiWhile (== '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
   (rawInline <$> pRawAttribute <*> pure bs) <|> pure (verbatim bs)
 
