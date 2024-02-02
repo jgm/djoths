@@ -9,10 +9,11 @@ module Djot.Inlines
 where
 
 import Data.Char (isAscii, isLetter, isAlphaNum, isSymbol, isPunctuation)
-import Control.Monad (guard, when, unless, mzero)
+import Control.Monad (guard, when, mzero)
 import Data.Sequence (Seq)
-import Data.Bits (testBit, setBit, clearBit, (.&.), (.|.))
 import qualified Data.Sequence as Seq
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Djot.FlatParse as FP
 import Djot.Parse
 import Djot.Attributes (pAttributes)
@@ -41,7 +42,7 @@ parseInlines :: Seq ByteString -> Either String Inlines
 parseInlines lns = do
   let inp = B8.dropWhileEnd isWs $ fold lns
   case parse pInlines ParserState{ mode = NormalMode
-                                 , activeDelims = 0 } inp of
+                                 , activeDelims = mempty } inp of
     Just (off, ils)
       | off >= B8.length inp -> Right ils
       | otherwise -> Left $ "parseInlines failed to consume input: " <>
@@ -53,7 +54,7 @@ parseTableCells inp' = do
   let inp = B8.dropWhileEnd isWs inp'
   case parse (many (removeFinalWs <$> pInlines <* asciiChar '|'))
         ParserState{ mode = TableCellMode
-                   , activeDelims = 0 } inp of
+                   , activeDelims = mempty } inp of
     Just (off, cells)
       | off >= B8.length inp -> Right cells
       | otherwise -> Left $ "parseTableCells failed to consume input: " <>
@@ -77,7 +78,10 @@ data InlineParseMode =
 data ParserState =
   ParserState
   { mode :: InlineParseMode
-  , activeDelims :: Int }
+  , activeDelims :: Set Delim }
+  deriving (Show, Ord, Eq)
+
+data Delim = Delim Bool Char
   deriving (Show, Ord, Eq)
 
 type P = Parser ParserState
@@ -253,22 +257,14 @@ bracesRequired _ = False
 
 pCloser :: P ()
 pCloser = do
-  i <- activeDelims <$> getState
-  if i .&. 0b000000000000000000000000000000000000000000011111111110000000000 == 0
-     then failed
+  delims <- activeDelims <$> getState
+  if Set.null delims
+     then mzero
      else do
-       skipSatisfyAscii (\d ->
-                  (testBit i 10 && d == '*')
-               || (testBit i 11 && d == '_')
-               || (testBit i 12 && d == '^')
-               || (testBit i 13 && d == '~')
-               || (testBit i 14 && d == '=')
-               || (testBit i 15 && d == '+')
-               || (testBit i 16 && d == '-')
-               || (testBit i 18 && d == ']'))
+       openerHadBrace <- asum $
+         map (\(Delim hadBrace c) -> hadBrace <$ asciiChar c) (F.toList delims)
        mblastc <- peekBack
        let afterws = maybe True isWs mblastc
-       let openerHadBrace = testBit i 19
        when ( afterws || openerHadBrace ) $ asciiChar '}'
 
 pEmph, pStrong, pSuperscript, pSubscript :: P Inlines
@@ -287,7 +283,7 @@ pBetween c constructor = do
   let starter leftBrace = do
         case leftBrace of
           False
-            | bracesRequired c -> failed
+            | bracesRequired c -> mzero
             | otherwise -> asciiChar c `notFollowedBy`
                                 (ws <|> asciiChar '}')
           True -> asciiChar c `notFollowedBy` asciiChar '}'
@@ -301,29 +297,13 @@ pBetween c constructor = do
   leftBrace <- (True <$ asciiChar '{') <|> pure False
   starterBs <- (if leftBrace then ("{" <>) else id) <$>
                  byteStringOf (starter leftBrace)
-  let bit = case c of
-        '*' -> 10
-        '_' -> 11
-        '^' -> 12
-        '~' -> 13
-        '=' -> 14
-        '+' -> 15
-        '-' -> 16
-        _   -> 17
-  priorState <- activeDelims <$> getState
-  updateState $ \st -> st{ activeDelims = setBit (activeDelims st) bit }
-  updateState $ \st -> st{ activeDelims =
-                            if leftBrace
-                               then setBit (activeDelims st) 19
-                               else clearBit (activeDelims st) 19 }
+  oldActiveDelims <- activeDelims <$> getState
+  updateState $ \st -> st{ activeDelims = Set.insert (Delim leftBrace c)
+                                             (activeDelims st) }
   firstIl <- pInline <|> pBetween c constructor -- to allow stacked cases like '**hi**'
   restIls <- many pInline
   let ils = mconcat (firstIl:restIls)
-  updateState $ \st ->
-    st{ activeDelims =
-         activeDelims st .&. 0b111111111111111111111111111111111111111111100000000001111111111
-                   .|. (priorState .&.
-                       0b000000000000000000000000000000000000000000011111111110000000000) }
+  updateState $ \st -> st{ activeDelims = oldActiveDelims }
   (constructor ils <$ ender leftBrace) <|> pure (str starterBs <> ils)
 
 pTicks :: P Int
@@ -386,15 +366,10 @@ pBracketed = do
   let starter = asciiChar '['
   let ender = asciiChar ']'
   starterBs <- byteStringOf starter
-  priorState <- activeDelims <$> getState
-  updateState $ \st -> st{ activeDelims = setBit (activeDelims st) 18 }
+  oldActiveDelims <- activeDelims <$> getState
+  updateState $ \st -> st{ activeDelims = Set.insert (Delim False ']') (activeDelims st) }
   ils <- mconcat <$> many pInline
-  updateState $ \st ->
-    let i = activeDelims st
-     in st{ activeDelims =
-            i .&. 0b111111111111111111111111111111111111111111100000000001111111111
-                   .|. (priorState .&.
-                       0b000000000000000000000000000000000000000000011111111110000000000) }
+  updateState $ \st -> st{ activeDelims = oldActiveDelims }
   (Right ils <$ ender) <|> pure (Left (str starterBs <> ils))
 
 pImage :: P Inlines

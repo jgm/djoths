@@ -80,7 +80,7 @@ docSpec =
   BlockSpec
   { blockName = "Doc"
   , blockType = Document
-  , blockStart = failed
+  , blockStart = mzero
   , blockContinue = \_ -> pure True
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
