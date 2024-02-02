@@ -134,12 +134,16 @@ advance n st' =
      | otherwise = st{ offset = offset st + 1 }
 
 -- | Returns current byte as Char.
-peek :: ParserState s -> Maybe Char
-peek st = subject st B8.!? offset st
+current :: ParserState s -> Maybe Char
+current st = subject st B8.!? offset st
+
+-- | Returns current byte as Char.
+peek :: Parser s (Maybe Char)
+peek = Parser $ \st -> Just (st, current st)
 
 -- | Returns previous byte as Char.
-peekBack :: ParserState s -> Maybe Char
-peekBack st = subject st B8.!? (offset st - 1)
+peekBack :: Parser s (Maybe Char)
+peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
 
 -- | Skip $n$ bytes.
 skip :: Int -> Parser s ()
@@ -151,14 +155,14 @@ skip n = Parser $ \st ->
 -- | Parse an ASCII Char satisfying a predicate.
 satisfyAscii :: (Char -> Bool) -> Parser s Char
 satisfyAscii f = Parser $ \st ->
-  case peek st of
+  case current st of
     Just c | f c -> Just (advance 1 st, c)
     _ -> Nothing
 
 -- | Skip an ASCII Char satisfying a predicate.
 skipSatisfyAscii :: (Char -> Bool) -> Parser s ()
 skipSatisfyAscii f = Parser $ \st ->
-  case peek st of
+  case current st of
     Just c | f c -> Just (advance 1 st, ())
     _ -> Nothing
 
@@ -208,7 +212,7 @@ anyChar = satisfy (const True)
 -- | Parse an ASCII character.
 asciiChar :: Char -> Parser s ()
 asciiChar c = Parser $ \st ->
-  case peek st of
+  case current st of
     Just d | d == c -> Just (advance 1 st, ())
     _ -> Nothing
 
@@ -314,7 +318,7 @@ skipAsciiWhile f = Parser $ \st ->
 -- returning the bytestring consumed.
 someAsciiWhile :: (Char -> Bool) -> Parser s ByteString
 someAsciiWhile f = Parser $ \st ->
-  if fmap f (peek st) == Just True
+  if fmap f (current st) == Just True
      then
        let bs = B8.takeWhile f (B8.drop (offset st) (subject st))
        in  Just (advance (B8.length bs) st, bs)
@@ -370,6 +374,6 @@ ws = skipSatisfyAscii isWs *> skipAsciiWhile isWs
 -- | Next character is ASCII whitespace.
 followedByWhitespace :: Parser s ()
 followedByWhitespace = Parser $ \st ->
-  case peek st of
+  case current st of
     Just c | isWs c -> Just (st, ())
     _ -> Nothing
