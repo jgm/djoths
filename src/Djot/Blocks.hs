@@ -43,6 +43,7 @@ parseDoc opts bs = do
                         , psReferenceMap = mempty
                         , psNoteMap = mempty
                         , psAttributes = mempty
+                        , psAttrParserState = Nothing
                         , psIds = mempty
                         } bs of
     Just (_, doc) -> Right doc
@@ -694,15 +695,19 @@ attrSpec =
       let ind = getContainerData container
       skipMany spaceOrTab
       curind <- sourceColumn
+      mbapstate <- getsP psAttrParserState
       if curind <= ind
          then pure False
          else do
-           -- see if we've already got our attributes. This isn't
-           -- too efficient, because we end up parsing multiple times (again
-           -- at blockClose). TODO do better.
-           case parseAttributes Nothing (fold $ containerText container) of
+           let lastLine = case Seq.viewr (containerText container) of
+                             _ Seq.:> ll -> ll
+                             _ -> mempty
+           case parseAttributes mbapstate lastLine of
              Done _ -> pure False
-             _ -> pure True -- not yet: keep going!
+             Partial apstate' -> do
+               modifyP $ \st -> st{ psAttrParserState = Just apstate' }
+               pure True
+             Failed _ -> pure True -- not yet: keep going!
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = \container -> do
@@ -839,6 +844,7 @@ data PState =
   , psReferenceMap :: ReferenceMap
   , psNoteMap :: NoteMap
   , psAttributes :: Attr
+  , psAttrParserState :: Maybe AttrParserState
   , psIds :: Set ByteString
   }
 
