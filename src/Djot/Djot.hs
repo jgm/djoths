@@ -306,7 +306,7 @@ toOrderedListItem :: OrderedListAttributes -> Int -> Blocks
 toOrderedListItem listAttr num bs = do
   contents <- toLayout bs
   let marker = formatOrderedListMarker listAttr num
-  pure $ hang (offset marker + 1) marker contents
+  pure $ hang (offset marker + 1) (marker <> space) contents
 
 formatOrderedListMarker :: OrderedListAttributes -> Int -> Layout.Doc Text
 formatOrderedListMarker listAttr =
