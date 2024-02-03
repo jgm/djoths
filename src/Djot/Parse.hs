@@ -355,7 +355,7 @@ endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 -- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
 restOfLine =
-  byteStringOf $ skipMany (satisfyAscii (\c -> c /= '\n' && c /= '\r'))
+  byteStringOf $ skipMany (skipSatisfyAscii (\c -> c /= '\n' && c /= '\r'))
                    <* endline
 
 {-# INLINE isWs #-}
