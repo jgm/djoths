@@ -11,7 +11,7 @@ where
 
 import Prelude hiding (div)
 import Text.Read (readMaybe)
-import Data.Char (ord, isAsciiLower, isAsciiUpper)
+import Data.Char (ord, isAsciiLower, isAsciiUpper, isAscii, isAlphaNum)
 import Data.Foldable as F
 import Djot.Parse
 import Djot.AST
@@ -187,9 +187,7 @@ pOrderedListStart :: P [ListType]
 pOrderedListStart = do
   openParen <- (True <$ asciiChar '(') <|> pure False
   lookahead $ do
-    skipSome $ skipSatisfyAscii (\c -> (c >= '0' && c <= '9') ||
-                                        (c >= 'a' && c <= 'z') ||
-                                        (c >= 'A' && c <= 'Z'))
+    skipSome $ skipSatisfyAscii (\c -> isAscii c && isAlphaNum c)
     skipSatisfyAscii (\c -> c == '.' || c == ')')
   stylesAndStarts <- decimalStart <|> romanStart <|> letterStart
   delimType <-
