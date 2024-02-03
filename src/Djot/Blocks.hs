@@ -196,6 +196,7 @@ pOrderedListStart = do
     if openParen
        then LeftRightParen <$ asciiChar ')'
        else (RightParen <$ asciiChar ')') <|> (RightPeriod <$ asciiChar '.')
+  followedByWhitespace
   pure $ map
     (\(style, start) -> Ordered
         OrderedListAttributes
