@@ -8,7 +8,6 @@ module Djot.Parse
   , asciiChar
   , satisfyAscii
   , skipSatisfyAscii
-  , skipSatisfyByte
   , anyAsciiChar
   , satisfy
   , anyChar
@@ -180,12 +179,6 @@ skipSatisfyAscii :: (Char -> Bool) -> Parser s ()
 skipSatisfyAscii f = Parser $ \st ->
   case current st of
     Just c | f c -> Just (advanceByte (toByte c) st, ())
-    _ -> Nothing
-
-skipSatisfyByte :: (Word8 -> Bool) -> Parser s ()
-skipSatisfyByte f = Parser $ \st ->
-  case subject st B.!? offset st of
-    Just w | f w -> Just (advanceByte w st, ())
     _ -> Nothing
 
 -- | Parse a (possibly multibyte) Char satisfying a predicate.
