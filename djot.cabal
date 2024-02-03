@@ -22,7 +22,6 @@ Library
                       bytestring >= 0.11.3,
                       containers,
                       mtl,
-                      -- only needed for Djot.Djot, could be in separate lib
                       text,
                       doclayout
     hs-source-dirs:   src
@@ -40,8 +39,6 @@ Library
 
 executable djoths
     main-is:          Main.hs
-    -- other-modules:
-    -- other-extensions:
     build-depends:    base,
                       djot,
                       flatparse,
