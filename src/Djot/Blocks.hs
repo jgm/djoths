@@ -4,7 +4,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Djot.Blocks
 ( parseDoc
-, ParseOptions(..)
 , toIdentifier
 )
 where
