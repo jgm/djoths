@@ -40,10 +40,12 @@ parseDoc opts bs = do
                             NonEmpty.fromList
                              [emptyContainer{ containerSpec = docSpec }]
                         , psReferenceMap = mempty
+                        , psAutoReferenceMap = mempty
                         , psNoteMap = mempty
                         , psAttributes = mempty
                         , psAttrParserState = Nothing
                         , psIds = mempty
+                        , psAutoIds = mempty
                         } bs of
     Just (_, doc) -> Right doc
     Nothing -> Left "Parse failure."
@@ -391,18 +393,16 @@ sectionSpec =
                             then generateId (n+1) base
                             else do
                               modifyP $ \st ->
-                                st{ psIds = Set.insert candidate (psIds st) }
+                                st{ psIds = Set.insert candidate (psIds st)
+                                  , psAutoIds = Set.insert candidate
+                                                   (psAutoIds st) }
                               pure candidate
                    ident <- generateId 0 (toIdentifier bs)
                    pure (ident, mempty, normalizeLabel bs)
              -- add implicit reference
              let dest = "#" <> secid
-             modifyP $ \st -> st{ psReferenceMap =
-                                   case lookupReference label (psReferenceMap st) of
-                                     Nothing -> insertReference label
-                                                 (dest, Attr [("_implicit","1")])
-                                                 (psReferenceMap st)
-                                     Just _ -> psReferenceMap st }
+             modifyP $ \st -> st{ psAutoReferenceMap = insertReference label
+                                     (dest, Attr []) (psAutoReferenceMap st) }
 
              pure container{ containerData =
                                toDyn $ SectionData lev (Just secid)
@@ -840,10 +840,12 @@ data PState =
   { psParseOptions :: ParseOptions
   , psContainerStack :: NonEmpty Container
   , psReferenceMap :: ReferenceMap
+  , psAutoReferenceMap :: ReferenceMap
   , psNoteMap :: NoteMap
   , psAttributes :: Attr
   , psAttrParserState :: Maybe AttrParserState
   , psIds :: Set ByteString
+  , psAutoIds :: Set ByteString
   }
 
 type P = Parser PState
@@ -859,9 +861,13 @@ pDoc = do
   bls <- pBlocks <* eof
   notemap <- getsP psNoteMap
   refmap <- getsP psReferenceMap
+  autorefmap <- getsP psAutoReferenceMap
+  autoids <- getsP psAutoIds
   pure $ Doc{ docBlocks = bls
             , docFootnotes = notemap
-            , docReferences = refmap }
+            , docReferences = refmap
+            , docAutoReferences = autorefmap
+            , docAutoIdentifiers = autoids }
 
 pBlocks :: P Blocks
 pBlocks = skipMany processLine >> finalizeDocument

@@ -48,12 +48,12 @@ toRoundTripTest :: (BL.ByteString -> Either String Doc)
 toRoundTripTest parser st =
   testCase name ((actual == expected) @? rtlog)
     where name = "lines " ++ show (start_line st) ++ "-" ++ show (end_line st)
-          native = either (\_ -> Doc mempty mempty mempty) id $ parser (djot st)
+          native = either (\_ -> mempty) id $ parser (djot st)
           expected = native
           ropts = RenderOptions{ preserveSoftBreaks = True }
           renderedDjot = encodeUtf8 . TL.fromStrict $ render (Just 62) $
                            renderDjot ropts native
-          actual = either (\_ -> Doc mempty mempty mempty) id $ parser renderedDjot
+          actual = either (\_ -> mempty) id $ parser renderedDjot
           lbsToStr = TL.unpack . fromUtf8
           rtlog = lbsToStr (djot st) <>
                   "↓\n" <>

@@ -11,11 +11,12 @@ where
 
 import Djot.AST
 import Djot.Options (RenderOptions(..))
-import Djot.Blocks (toIdentifier)
 import Data.Char (ord, chr)
 import Djot.Parse (utf8ToStr)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.Set as Set
+import Data.Set (Set)
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
@@ -40,6 +41,7 @@ renderDjot opts doc = evalState
                          BState{ noteMap = docFootnotes doc
                                , noteOrder = mempty
                                , referenceMap = docReferences doc
+                               , autoIds = docAutoIdentifiers doc
                                , afterSpace = True
                                , nestings = IntMap.fromList
                                   -- anything not in this list
@@ -58,6 +60,7 @@ data BState =
   BState { noteMap :: NoteMap
          , noteOrder :: M.Map ByteString Int
          , referenceMap :: ReferenceMap
+         , autoIds :: Set ByteString
          , afterSpace :: Bool
          , nestings :: IntMap.IntMap Int
          , lastBullet :: Maybe Char
@@ -159,22 +162,20 @@ instance ToLayout Attr where
 
 instance ToLayout (Node Block) where
   toLayout (Node attr bl) =
-    ($$) <$> toLayout (case bl of
-                         -- don't print an id that was generated implicitly
-                         Heading _ ils ->
-                           let Attr as = attr
-                               autoid = toIdentifier (inlinesToByteString ils)
-                            in Attr [(k,v) | (k,v) <- as
-                                           , not (k == "id" && v == autoid)]
-                         Section bls ->
-                           case Seq.viewl (unMany bls) of
-                               Node _ (Heading _ ils) Seq.:< _
-                                 -> let Attr as = attr
-                                        autoid = toIdentifier (inlinesToByteString ils)
-                                     in Attr [(k,v) | (k,v) <- as
-                                                    , not (k == "id" && v == autoid)]
-                               _ -> attr
-                         _ -> attr)
+    ($$) <$> (case bl of
+                -- don't print an id that was generated implicitly
+                Heading{} -> do
+                  autoids <- gets autoIds
+                  let Attr as = attr
+                  toLayout $ Attr [(k,v) | (k,v) <- as
+                                  , not (k == "id" && v `Set.member` autoids)]
+                Section{} -> do
+                  autoids <- gets autoIds
+                  let Attr as = attr
+                  toLayout $ Attr [(k,v) | (k,v) <- as
+                                  , not (k == "id" &&
+                                         v `Set.member` autoids)]
+                _ -> toLayout attr)
          <*> (($$ blankline) <$> case bl of
                Para ils -> toLayout ils
                Heading lev ils -> do

@@ -32,6 +32,7 @@ renderHtml opts doc = evalState
                                , noteRefs = mempty
                                , renderedNotes = mempty
                                , referenceMap = docReferences doc
+                                             <> docAutoReferences doc
                                , options = opts
                                }
 

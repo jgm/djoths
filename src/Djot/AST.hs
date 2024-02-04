@@ -81,6 +81,7 @@ import Data.ByteString (ByteString)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
+import Data.Set (Set)
 import Data.Data (Data, Typeable)
 import qualified Data.ByteString.Char8 as B8
 import GHC.Generics (Generic)
@@ -112,7 +113,7 @@ data Node a = Node Attr a
 {-# INLINE addAttr #-}
 addAttr :: Functor f => Attr -> f (Node a) -> f (Node a)
 addAttr attr nodes =
-  fmap (\(Node attr' bs) -> Node (attr' <> attr) bs) nodes
+  (\(Node attr' bs) -> Node (attr' <> attr) bs) <$> nodes
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
@@ -240,14 +241,17 @@ data Doc =
   Doc{ docBlocks :: Blocks
      , docFootnotes :: NoteMap
      , docReferences :: ReferenceMap
+     , docAutoReferences :: ReferenceMap
+     , docAutoIdentifiers :: Set ByteString
      } deriving (Show, Ord, Eq, Typeable, Generic)
 
 instance Semigroup Doc where
-  Doc bs ns rs <> Doc bs' ns' rs' = Doc (bs <> bs') (ns <> ns') (rs <> rs')
+  Doc bs ns rs ar ai <> Doc bs' ns' rs' ar' ai' =
+    Doc (bs <> bs') (ns <> ns') (rs <> rs') (ar <> ar') (ai <> ai')
 
 instance Monoid Doc where
   mappend = (<>)
-  mempty = Doc mempty mempty mempty
+  mempty = Doc mempty mempty mempty mempty mempty
 
 -- | A map from labels to contents.
 newtype NoteMap = NoteMap { unNoteMap :: M.Map ByteString Blocks }
