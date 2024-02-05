@@ -35,6 +35,7 @@ module Djot.Parse
   , restOfLine
   , ws
   , followedByWhitespace
+  , followedByBlankLine
   , spaceOrTab
   , isWs
   , strToUtf8
@@ -376,6 +377,16 @@ followedByWhitespace = Parser $ \st ->
   case current st of
     Just c | isWs c -> Just (st, ())
     _ -> Nothing
+
+-- | Returns True if followed by 0 or more spaces/tabs and endline or eof.
+followedByBlankLine :: Parser s Bool
+followedByBlankLine = Parser $ \st ->
+  case B8.uncons
+        (B8.dropWhile (\c -> c == ' ' || c == '\t' || c == '\r')
+         (B8.drop (offset st) (subject st))) of
+    Just ('\n',_) -> Just (st, True)
+    Nothing -> Just (st, True)
+    _ -> Just (st, False)
 
 strToUtf8 :: String -> ByteString
 strToUtf8 = encodeUtf8 . T.pack
