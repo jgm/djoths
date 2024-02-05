@@ -378,15 +378,22 @@ followedByWhitespace = Parser $ \st ->
     Just c | isWs c -> Just (st, ())
     _ -> Nothing
 
--- | Returns True if followed by 0 or more spaces/tabs and endline or eof.
-followedByBlankLine :: Parser s Bool
+-- | Followed by 0 or more spaces/tabs and endline or eof.
+followedByBlankLine :: Parser s ()
 followedByBlankLine = Parser $ \st ->
-  case B8.uncons
-        (B8.dropWhile (\c -> c == ' ' || c == '\t' || c == '\r')
-         (B8.drop (offset st) (subject st))) of
-    Just ('\n',_) -> Just (st, True)
-    Nothing -> Just (st, True)
-    _ -> Just (st, False)
+  let subj = subject st
+      !len = B8.length subj
+      go !off
+        | off >= len
+          = Just (st, ())
+        | otherwise
+          = case B8.index subj off of
+              ' ' -> go (off + 1)
+              '\r' -> go (off + 1)
+              '\t' -> go (off + 1)
+              '\n' -> Just (st, ())
+              _ -> Nothing
+  in go (offset st)
 
 strToUtf8 :: String -> ByteString
 strToUtf8 = encodeUtf8 . T.pack
