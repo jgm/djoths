@@ -448,7 +448,7 @@ tableSpec =
       -- TODO: this is inefficient; we parse the inline contents
       -- twice. Find a better way.
       (True <$ lookahead pRawTableRow)
-      <|> (True <$ lookahead pBlankLine)
+      <|> (True <$ followedByBlankLine)
       <|> (True <$ lookahead
                       (skipMany spaceOrTab *> asciiChar '^' *> spaceOrTab))
       <|> (True <$ guard (not (null (containerChildren container))))
@@ -531,7 +531,7 @@ captionSpec =
       skipMany spaceOrTab
       curind <- sourceColumn
       let ind = getContainerData container
-      guard (curind > ind) <|> lookahead pBlankLine
+      guard (curind > ind) <|> followedByBlankLine
       pure True) <|> pure False
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
@@ -777,7 +777,7 @@ footnoteSpec =
       skipMany spaceOrTab
       curind <- sourceColumn
       let FootnoteData ind _ = getContainerData container
-      guard (curind > ind) <|> lookahead pBlankLine
+      guard (curind > ind) <|> followedByBlankLine
       pure True) <|> pure False
   , blockContainsBlock = Just Normal
   , blockContainsLines = True
@@ -795,7 +795,8 @@ paraSpec =
   BlockSpec
   { blockName = "Para"
   , blockType = Normal
-  , blockStart = fails pBlankLine *> addContainer paraSpec (mempty :: Inlines)
+  , blockStart = fails followedByBlankLine *>
+                     addContainer paraSpec (mempty :: Inlines)
   , blockContinue = \_ -> do
       skipMany spaceOrTab
       (False <$ lookahead (endline <|> eof)) <|> pure True
@@ -892,9 +893,7 @@ processLine = do
   -- check for new container starts and open if needed
   newContainersAdded <- tryContainerStarts
 
-  isBlank <- (True <$ lookahead pBlankLine) <|> pure False
-
-  unless isBlank $ do
+  followedByBlankLine <|> do
     -- determine if we have a lazy line
     let isLazy = not (allContainersMatch || newContainersAdded) &&
                  blockName (containerSpec (NonEmpty.head containers)) == "Para"
@@ -1002,10 +1001,6 @@ closeInappropriateContainers spec = do
               pure ()
       | otherwise -> closeCurrentContainer *> closeInappropriateContainers spec
 
-
-{-# INLINE pBlankLine #-}
-pBlankLine :: P ()
-pBlankLine = skipMany spaceOrTab *> (endline <|> eof)
 
 finalize :: Container -> Blocks
 finalize cont =
