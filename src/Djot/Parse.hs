@@ -348,8 +348,10 @@ endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 -- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
 restOfLine =
-  byteStringOf $ skipMany (skipSatisfyByte (\c -> c /= '\n' && c /= '\r'))
-                   <* endline
+  byteStringOf $
+    (skipMany (skipSatisfyByte (\c -> c /= '\n' && c /= '\r')) <* endline)
+    <|>
+    skipSome (skipSatisfyByte (const True))
 
 {-# INLINE isWs #-}
 -- | Is space, tab, `\r`, or `\n`.
