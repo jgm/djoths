@@ -18,6 +18,24 @@ import Data.Typeable (Typeable)
 import Data.Maybe (fromMaybe)
 -- import Debug.Trace
 
+
+--  attributes { id = "foo", class = "bar baz",
+--               key1 = "val1", key2 = "val2" }
+--  syntax:
+--
+--  attributes <- '{' (ignorable attribute)* ignorable* '}'
+--  attribute <- identifier | class | keyval
+--  identifier <- '#' name
+--  class <- '.' name
+--  name <- (nonspace, nonpunctuation other than ':', '_', '-')+
+--  keyval <- key '=' val
+--  key <- (ASCII_ALPHANUM | ':' | '_' | '-')+
+--  val <- bareval | quotedval
+--  bareval <- (ASCII_ALPHANUM | ':' | '_' | '-')+
+--  quotedval <- '"' ([^"] | '\"') '"'
+--  ignorable <- whitespace | comment
+--  comment <- '%' [^%}]* '%'
+
 pAttributes :: Parser s Attr
 pAttributes = do
   bs <- lookahead takeRest
@@ -58,7 +76,7 @@ data AttrPart =
   | AttrValue ByteString
   deriving (Eq, Ord, Show, Typeable)
 
--- resumable parser -- parts in reverse order
+-- | Resumable parser, returning parts in reverse order.
 parseAttributes :: Maybe AttrParserState -> ByteString -> AttrParseResult
 parseAttributes mbState bs =
   case go (fromMaybe AttrParserState{ aState = START
@@ -134,24 +152,6 @@ skipWhile charP st =
   case B8.findIndex (not . charP) (B8.drop (offset st) (subject st)) of
     Nothing -> st{ offset = B8.length (subject st) }
     Just i -> st{ offset = offset st + i }
-
-
---  attributes { id = "foo", class = "bar baz",
---               key1 = "val1", key2 = "val2" }
---  syntax:
---
---  attributes <- '{' (ignorable attribute)* ignorable* '}'
---  attribute <- identifier | class | keyval
---  identifier <- '#' name
---  class <- '.' name
---  name <- (nonspace, nonpunctuation other than ':', '_', '-')+
---  keyval <- key '=' val
---  key <- (ASCII_ALPHANUM | ':' | '_' | '-')+
---  val <- bareval | quotedval
---  bareval <- (ASCII_ALPHANUM | ':' | '_' | '-')+
---  quotedval <- '"' ([^"] | '\"') '"'
---  ignorable <- whitespace | comment
---  comment <- '%' [^%}]* '%'
 
 attrPartsToAttr :: [AttrPart] -> Attr
 attrPartsToAttr = go
