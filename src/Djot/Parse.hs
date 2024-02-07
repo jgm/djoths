@@ -6,9 +6,8 @@ module Djot.Parse
   , parse
   , skip
   , asciiChar
-  , satisfyAscii
-  , skipSatisfyAscii
-  , anyAsciiChar
+  , satisfyByte
+  , skipSatisfyByte
   , satisfy
   , anyChar
   , skipMany
@@ -168,16 +167,16 @@ skip n = Parser $ \st ->
      then Just (advance n st, ())
      else Nothing
 
--- | Parse an ASCII Char satisfying a predicate.
-satisfyAscii :: (Char -> Bool) -> Parser s Char
-satisfyAscii f = Parser $ \st ->
+-- | Parse a byte satisfying a predicate.
+satisfyByte :: (Char -> Bool) -> Parser s Char
+satisfyByte f = Parser $ \st ->
   case current st of
     Just c | f c -> Just (advanceByte (toByte c) st, c)
     _ -> Nothing
 
--- | Skip an ASCII Char satisfying a predicate.
-skipSatisfyAscii :: (Char -> Bool) -> Parser s ()
-skipSatisfyAscii f = Parser $ \st ->
+-- | Skip byte satisfying a predicate.
+skipSatisfyByte :: (Char -> Bool) -> Parser s ()
+skipSatisfyByte f = Parser $ \st ->
   case current st of
     Just c | f c -> Just (advanceByte (toByte c) st, ())
     _ -> Nothing
@@ -231,10 +230,6 @@ asciiChar c = Parser $ \st ->
   case current st of
     Just d | d == c -> Just (advanceByte (toByte c) st, ())
     _ -> Nothing
-
--- | Parse any ASCII character.
-anyAsciiChar :: Parser s Char
-anyAsciiChar = satisfyAscii (const True)
 
 -- | Apply parser 0 or more times, discarding result.
 skipMany :: Parser s a -> Parser s ()
@@ -349,7 +344,7 @@ endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 -- | Return the rest of line (including the end of line).
 restOfLine :: Parser s ByteString
 restOfLine =
-  byteStringOf $ skipMany (skipSatisfyAscii (\c -> c /= '\n' && c /= '\r'))
+  byteStringOf $ skipMany (skipSatisfyByte (\c -> c /= '\n' && c /= '\r'))
                    <* endline
 
 {-# INLINE isWs #-}
@@ -369,7 +364,7 @@ spaceOrTab = Parser $ \st ->
 
 -- | Skip 1 or more ASCII whitespace.
 ws :: Parser s ()
-ws = skipSome (satisfyAscii isWs)
+ws = skipSome (satisfyByte isWs)
 
 -- | Next character is ASCII whitespace.
 followedByWhitespace :: Parser s ()

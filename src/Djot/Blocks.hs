@@ -138,7 +138,7 @@ pListStart = pBulletListStart <|> pDefinitionListStart <|> pOrderedListStart
 
 pBulletListStart :: P [ListType]
 pBulletListStart = do
-  bulletchar <- satisfyAscii (\c -> c == '-' || c == '+' || c == '*')
+  bulletchar <- satisfyByte (\c -> c == '-' || c == '+' || c == '*')
   followedByWhitespace
   (do skipMany spaceOrTab
       asciiChar '['
@@ -188,8 +188,8 @@ pOrderedListStart :: P [ListType]
 pOrderedListStart = do
   openParen <- (True <$ asciiChar '(') <|> pure False
   lookahead $ do
-    skipSome $ skipSatisfyAscii (\c -> isAscii c && isAlphaNum c)
-    skipSatisfyAscii (\c -> c == '.' || c == ')')
+    skipSome $ skipSatisfyByte (\c -> isAscii c && isAlphaNum c)
+    skipSatisfyByte (\c -> c == '.' || c == ')')
   stylesAndStarts <- decimalStart <|> romanStart <|> letterStart
   delimType <-
     if openParen
@@ -204,12 +204,12 @@ pOrderedListStart = do
         , orderedListStart = start }) stylesAndStarts
  where
   decimalStart = do
-    digits <- some (satisfyAscii (\c -> c >= '0' && c <= '9'))
+    digits <- some (satisfyByte (\c -> c >= '0' && c <= '9'))
     case readMaybe digits of
       Just n -> pure [(Decimal, n)]
       Nothing -> mzero
   letterStart = do
-    c <- satisfyAscii (\c -> isAsciiLower c || isAsciiUpper c)
+    c <- satisfyByte (\c -> isAsciiLower c || isAsciiUpper c)
     if isAsciiLower c
        then pure [(LetterLower, 1 + (ord c - ord 'a'))]
        else pure [(LetterUpper, 1 + (ord c - ord 'A'))]
@@ -239,15 +239,15 @@ pRomanNumeral = do
                            c == 'l' || c == 'c' || c == 'd' || c == 'm'
   let isRomanChar c = isUpperRomanChar c || isLowerRomanChar c
   lettercase <- lookahead $ do
-    c <- satisfyAscii isRomanChar
+    c <- satisfyByte isRomanChar
     let lettercase = if isUpperRomanChar c then Uppercase else Lowercase
-    skipMany $ skipSatisfyAscii $
+    skipMany $ skipSatisfyByte $
       case lettercase of
         Uppercase -> isUpperRomanChar
         Lowercase -> isLowerRomanChar
-    skipSatisfyAscii (\d -> d == ')' || d == '.')
+    skipSatisfyByte (\d -> d == ')' || d == '.')
     pure lettercase
-  let rchar uc lc = satisfyAscii $ if lettercase == Uppercase
+  let rchar uc lc = satisfyByte $ if lettercase == Uppercase
                                        then (== uc)
                                        else (== lc)
   let one         = rchar 'I' 'i'
@@ -546,7 +546,7 @@ thematicBreakSpec =
   { blockName = "ThematicBreak"
   , blockType = Normal
   , blockStart = do
-      let breakChar = skipSatisfyAscii (\c -> c == '-' || c == '*')
+      let breakChar = skipSatisfyByte (\c -> c == '-' || c == '*')
                         *> skipMany spaceOrTab
       breakChar *> breakChar *> breakChar *> skipMany breakChar
       lookahead endline
@@ -612,7 +612,7 @@ codeBlockSpec =
       ticks <- byteStringOf $ asciiChar '`' *> asciiChar '`' *> skipSome (asciiChar '`')
       skipMany spaceOrTab
       lang <- (byteStringOf
-                 (skipSome $ skipSatisfyAscii (\c -> c /= '`' && not (isWs c)))
+                 (skipSome $ skipSatisfyByte (\c -> c /= '`' && not (isWs c)))
                   <* skipMany spaceOrTab)
              <|> pure ""
       lookahead endline
@@ -652,7 +652,7 @@ divSpec =
       colons <- byteStringOf $
         asciiChar ':' *> asciiChar ':' *> skipSome (asciiChar ':')
       skipMany spaceOrTab
-      label <- byteStringOf $ skipMany $ skipSatisfyAscii (not . isWs)
+      label <- byteStringOf $ skipMany $ skipSatisfyByte (not . isWs)
       skipMany spaceOrTab
       lookahead endline
       addContainer divSpec (DivData colons label)
@@ -734,7 +734,7 @@ referenceDefinitionSpec =
       asciiChar '['
       fails (asciiChar '^') -- footnote
       label <- byteStringOf
-                (some (skipSatisfyAscii (\c -> c /= ']' && c /= '\n')))
+                (some (skipSatisfyByte (\c -> c /= ']' && c /= '\n')))
       asciiChar ']'
       asciiChar ':'
       skipMany spaceOrTab
@@ -768,7 +768,7 @@ footnoteSpec =
       asciiChar '['
       asciiChar '^'
       label <- byteStringOf
-                (some (skipSatisfyAscii (\c -> c /= ']' && c /= '\n')))
+                (some (skipSatisfyByte (\c -> c /= ']' && c /= '\n')))
       asciiChar ']'
       asciiChar ':'
       skipMany spaceOrTab

@@ -134,7 +134,7 @@ pAddAttributes (Many ils) = do
 
 pInline' :: P Inlines
 pInline' = do
-  (do c <- lookahead (satisfyAscii isSpecial)
+  (do c <- lookahead (satisfyByte isSpecial)
       fails pCloser
       (case c of
           '\\' -> pEscaped
@@ -171,7 +171,7 @@ pInline' = do
 pSpecial :: P Inlines
 pSpecial = do
   st <- getState
-  c <- satisfyAscii (case mode st of
+  c <- satisfyByte (case mode st of
                        TableCellMode -> \d -> isSpecial d && d /= '|'
                        _ -> isSpecial)
   if c == '\r'
@@ -179,12 +179,12 @@ pSpecial = do
      else pure $ str $ B8.singleton c
 
 pWords :: P Inlines
-pWords = str <$> byteStringOf (skipSome (skipSatisfyAscii (not . isSpecial)))
+pWords = str <$> byteStringOf (skipSome (skipSatisfyByte (not . isSpecial)))
 
 pEscaped :: P Inlines
 pEscaped = do
   asciiChar '\\'
-  c <- satisfyAscii (\d ->
+  c <- satisfyByte (\d ->
           isAscii d &&
             (isSymbol d || isPunctuation d || d == ' ' || d == '\t'))
          <|> ('\n' <$ endline)
@@ -213,7 +213,7 @@ pSoftBreak = do
 pSymbol :: P Inlines
 pSymbol = do
   asciiChar ':'
-  bs <- byteStringOf $ skipSome (skipSatisfyAscii
+  bs <- byteStringOf $ skipSome (skipSatisfyByte
                                     (\c -> c == '+' || c == '-' ||
                                          (isAscii c && isAlphaNum c)))
   asciiChar ':'
@@ -300,7 +300,7 @@ pVerbatim :: P Inlines
 pVerbatim = do
   numticks <- pTicks
   let ender = pTicks >>= guard . (== numticks)
-  let content = skipSome (skipSatisfyAscii (\c -> c /= '`' && c /= '\\')) <|>
+  let content = skipSome (skipSatisfyByte (\c -> c /= '`' && c /= '\\')) <|>
                  (asciiChar '\\' <* anyChar) <|>
                  (fails ender *> skipSome (asciiChar '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
@@ -328,7 +328,7 @@ pRawAttribute :: P Format
 pRawAttribute = do
   byteString "{="
   fmt <- Format <$>
-             byteStringOf (skipMany (skipSatisfyAscii (\c -> c /= '}' &&
+             byteStringOf (skipMany (skipSatisfyByte (\c -> c /= '}' &&
                                                  not (isWs c))))
   asciiChar '}'
   pure fmt
@@ -338,7 +338,7 @@ pFootnoteReference = do
   asciiChar '['
   asciiChar '^'
   label <- byteStringOf $ skipMany $
-             skipSatisfyAscii (\c -> c /= ']' && not (isWs c))
+             skipSatisfyByte (\c -> c /= ']' && not (isWs c))
   asciiChar ']'
   pure $ footnoteReference label
 
@@ -369,7 +369,7 @@ pImage = do
 pAutolink :: P Inlines
 pAutolink = do
   asciiChar '<'
-  res <- byteStringOf $ skipSome $ skipSatisfyAscii (\c -> c /= '>' && c /= '<')
+  res <- byteStringOf $ skipSome $ skipSatisfyByte (\c -> c /= '>' && c /= '<')
   asciiChar '>'
   let url = B8.filter (\c -> c /= '\n' && c /= '\r') res
   case B8.find (\c -> c == '@' || c == ':' || c == '.') url of
@@ -407,7 +407,7 @@ pInBalancedParens nestlevel =
   (guard (nestlevel == 0) <* lookahead (asciiChar ')')) <|>
     do lev <-   (nestlevel <$ (fails pCloser *>
                                -- but see https://github.com/jgm/djot/discussions/247
-                               skipSatisfyAscii
+                               skipSatisfyByte
                                  (\c -> c /= '(' && c /= ')' && c /= '\\')))
             <|> (nestlevel <$ (asciiChar '\\' <* anyChar))
             <|> ((nestlevel + 1) <$ asciiChar '(')
@@ -417,7 +417,7 @@ pInBalancedParens nestlevel =
 pReference :: ByteString -> P Target
 pReference rawDescription = do
   asciiChar '['
-  bs <- byteStringOf $ pAtMost 400 $ skipSatisfyAscii
+  bs <- byteStringOf $ pAtMost 400 $ skipSatisfyByte
            (\c -> c /= '[' && c /= ']')
   asciiChar ']'
   let label = normalizeLabel $
@@ -444,7 +444,7 @@ pCloseDoubleQuote = do
   lbrace <- (True <$ asciiChar '{') <|> pure False
   asciiChar '"'
   rbrace <- (True <$ asciiChar '}') <|> pure False
-  whitespaceAfter <- (True <$ lookahead (skipSatisfyAscii isWs)) <|> pure False
+  whitespaceAfter <- (True <$ lookahead (skipSatisfyByte isWs)) <|> pure False
   guard $ not lbrace && (rbrace || not whitespaceBefore || whitespaceAfter)
 
 pDoubleQuote :: P Inlines
