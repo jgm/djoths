@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BinaryLiterals #-}
-{-# LANGUAGE StrictData #-}
 module Djot.Parse
 (   Parser
   , parse
@@ -64,7 +63,7 @@ newtype Parser s a =
 instance Functor (Parser s) where
   fmap f g = Parser $ \s -> case runParser g s of
                                  Nothing -> Nothing
-                                 Just (s', x) -> Just (s', f x)
+                                 Just (s', !x) -> Just (s', f x)
 
 instance Applicative (Parser s) where
   pure x = Parser (\s -> Just (s, x))
@@ -96,11 +95,11 @@ instance MonadPlus (Parser s) where
 
 data ParserState a =
   ParserState
-  { subject :: ByteString
-  , offset :: Int
-  , line :: Int
-  , column :: Int
-  , userState :: a
+  { subject :: !ByteString
+  , offset :: !Int
+  , line :: !Int
+  , column :: !Int
+  , userState :: !a
   }
   deriving (Show)
 
