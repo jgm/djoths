@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Test.Tasty
+import Test.Tasty.QuickCheck
 import Test.Tasty.HUnit
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (decodeUtf8With, encodeUtf8)
@@ -11,6 +12,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
 import Djot ( ParseOptions(..), RenderOptions(..),
               parseDoc, renderHtml, renderDjot )
+import Djot.Parse ( parse, satisfy, strToUtf8, utf8ToStr )
 import Djot.AST
 import System.FilePath ((</>), takeExtension, takeFileName)
 import System.Directory (getDirectoryContents)
@@ -31,7 +33,17 @@ main = do
        [testGroup fp (map (toRoundTripTest parser) ts)
           | (fp, ts) <- tests
           , takeFileName fp /= "raw.test"]
+    , testGroup "Djot.Parse" parserTests
     ]
+
+parserTests :: [TestTree]
+parserTests =
+  [ testCase "satisfy multibyte"
+      (parse (satisfy (=='ǎ') *> satisfy (=='老')) ()
+         (strToUtf8 "ǎ老bc") @?= Just (5, '老'))
+  , testProperty "UTF8 conversion round-trips"
+      (\s -> utf8ToStr (strToUtf8 s) == s)
+  ]
 
 toSpecTest :: (BL.ByteString -> Either String Doc)
            -> SpecTest -> TestTree

@@ -230,7 +230,7 @@ anyChar = satisfy (const True)
 
 -- | Parse an ASCII character.
 asciiChar :: Char -> Parser s ()
-asciiChar c = Parser $ \st ->
+asciiChar !c = Parser $ \st ->
   case current st of
     Just d | d == c -> Just (advanceByte (toByte c) st, ())
     _ -> Nothing
