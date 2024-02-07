@@ -34,6 +34,12 @@ main = do
           | (fp, ts) <- tests
           , takeFileName fp /= "raw.test"]
     , testGroup "Djot.Parse" parserTests
+    , testGroup "Fuzz"
+       [testProperty "parses all inputs"
+         (\s -> case parseDoc ParseOptions (strToUtf8 s) of
+                    Left _ -> False
+                    Right _ -> True)
+       ]
     ]
 
 parserTests :: [TestTree]
