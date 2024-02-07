@@ -161,7 +161,7 @@ peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
 
 -- | Skip $n$ bytes.
 skip :: Int -> Parser s ()
-skip n = Parser $ \st ->
+skip !n = Parser $ \st ->
   if offset st + n <= B8.length (subject st)
      then Just (advance n st, ())
      else Nothing
@@ -192,17 +192,23 @@ satisfy f = Parser $ \st ->
     Nothing -> Nothing
     Just w
       | w < 0b10000000
-      , c <- chr (fromIntegral w)
+      , !c <- chr (fromIntegral w)
       , f c -> Just (advanceByte (toByte c) st, chr (fromIntegral w))
       | b1 .&. 0b11100000 == 0b11000000
-      , b2 >= 0b10000000 -> Just (advance 2 st, chr (toCodePoint2 b1 b2))
+      , b2 >= 0b10000000
+      , !c <- chr (toCodePoint2 b1 b2)
+      , f c -> Just (advance 2 st, c)
       | b1 .&. 0b11110000 == 0b11100000
       , b2 >= 0b10000000
-      , b3 >= 0b10000000 -> Just (advance 3 st, chr (toCodePoint3 b1 b2 b3))
+      , b3 >= 0b10000000
+      , !c <- chr (toCodePoint3 b1 b2 b3)
+      , f c -> Just (advance 3 st, c)
       | b1 .&. 0b11111000 == 0b11110000
       , b2 >= 0b10000000
       , b3 >= 0b10000000
-      , b4 >= 0b10000000 -> Just (advance 4 st, chr (toCodePoint4 b1 b2 b3 b4))
+      , b4 >= 0b10000000
+      , !c <- chr (toCodePoint4 b1 b2 b3 b4)
+      , f c -> Just (advance 4 st, c)
     _ -> Nothing
  where
   toCodePoint2 a b =
