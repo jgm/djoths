@@ -185,9 +185,9 @@ skipSatisfyByte f = Parser $ \st ->
 satisfy :: (Char -> Bool) -> Parser s Char
 satisfy f = Parser $ \st ->
   let peekWord !n = subject st B.!? (offset st + n)
-      !b2 = fromMaybe 0 $ peekWord 1
-      !b3 = fromMaybe 0 $ peekWord 2
-      !b4 = fromMaybe 0 $ peekWord 3
+      b2 = fromMaybe 0 $ peekWord 1
+      b3 = fromMaybe 0 $ peekWord 2
+      b4 = fromMaybe 0 $ peekWord 3
   in case peekWord 0 of
     Nothing -> Nothing
     Just b1
@@ -209,7 +209,7 @@ satisfy f = Parser $ \st ->
       , b4 >= 0b10000000
       , !c <- chr (toCodePoint4 b1 b2 b3 b4)
       , f c -> Just (advance 4 st, c)
-    _ -> Nothing
+      | otherwise -> Nothing
  where
   toCodePoint2 a b =
     (fromIntegral (a .&. 0b00011111) `shiftL` 6) +
