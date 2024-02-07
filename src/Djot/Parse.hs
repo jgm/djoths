@@ -184,16 +184,16 @@ skipSatisfyByte f = Parser $ \st ->
 -- Assumes UTF-8 encoding.
 satisfy :: (Char -> Bool) -> Parser s Char
 satisfy f = Parser $ \st ->
-  let b1 = fromMaybe 0 $ peekWord 0 st
-      b2 = fromMaybe 0 $ peekWord 1 st
-      b3 = fromMaybe 0 $ peekWord 2 st
-      b4 = fromMaybe 0 $ peekWord 3 st
-  in case peekWord 0 st of
+  let peekWord !n = subject st B.!? (offset st + n)
+      !b2 = fromMaybe 0 $ peekWord 1
+      !b3 = fromMaybe 0 $ peekWord 2
+      !b4 = fromMaybe 0 $ peekWord 3
+  in case peekWord 0 of
     Nothing -> Nothing
-    Just w
-      | w < 0b10000000
-      , !c <- chr (fromIntegral w)
-      , f c -> Just (advanceByte (toByte c) st, chr (fromIntegral w))
+    Just b1
+      | b1 < 0b10000000
+      , !c <- chr (fromIntegral b1)
+      , f c -> Just (advanceByte (toByte c) st, c)
       | b1 .&. 0b11100000 == 0b11000000
       , b2 >= 0b10000000
       , !c <- chr (toCodePoint2 b1 b2)
@@ -223,7 +223,6 @@ satisfy f = Parser $ \st ->
     (fromIntegral (b .&. 0b00111111) `shiftL` 12) +
     (fromIntegral (c .&. 0b00111111) `shiftL` 6) +
      fromIntegral (d .&. 0b00111111)
-  peekWord n st' = subject st' B.!? (offset st' + n)
 
 -- | Parse any character. Assumes UTF-8 encoding.
 anyChar :: Parser s Char
