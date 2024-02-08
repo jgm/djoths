@@ -41,6 +41,7 @@ module Djot.Parse
 )
 where
 
+import Data.Monoid (Endo(..))
 import Data.Word (Word8)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
@@ -117,9 +118,7 @@ parse parser ustate bs =
 
 -- | Given a number of bytes, advances the offset and updates line/column.
 advance :: Int -> ParserState s -> ParserState s
-advance !n st = advanceByteString bs st
- where
-   bs = B8.take n $! B8.drop (offset st) (subject st)
+advance !n = (appEndo . mconcat . replicate n . Endo) unsafeAdvanceByte
 
 -- | Advance the offset and line/column for consuming a bytestring.
 advanceByteString :: ByteString -> ParserState s -> ParserState s
