@@ -147,7 +147,7 @@ peek = Parser $ \st -> Just (st, current st)
 peekBack :: Parser s (Maybe Char)
 peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
 
--- | Skip $n$ bytes.
+-- | Skip n bytes.
 skipBytes :: Int -> Parser s ()
 skipBytes !n = Parser $ \st ->
   if offset st + n <= B8.length (subject st)
