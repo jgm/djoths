@@ -870,7 +870,7 @@ pDoc = do
             , docAutoIdentifiers = autoids }
 
 pBlocks :: P Blocks
-pBlocks = skipMany processLine >> finalizeDocument
+pBlocks = processLines >> finalizeDocument
 
 -- | Return value is True if all continuations match.
 checkContinuations :: NonEmpty Container -> P Bool
@@ -883,9 +883,9 @@ checkContinuations = go . reverse . NonEmpty.toList
                      else False <$ -- close len (c:cs) containers
                           replicateM_ (length (c:cs)) closeCurrentContainer
 
-{-# INLINE processLine #-}
-processLine :: P ()
-processLine = do
+{-# INLINE processLines #-}
+processLines :: P ()
+processLines = do
   -- check continuations for open containers and close any that don't match
   containers <- getsP psContainerStack
   allContainersMatch <- checkContinuations containers
@@ -916,6 +916,8 @@ processLine = do
        if blockContainsLines (containerSpec c)
           then c{ containerText = containerText c Seq.|> restline } :| rest
           else c :| rest
+
+  eof <|> processLines
 
 -- True if new container was started
 tryContainerStarts :: P Bool
