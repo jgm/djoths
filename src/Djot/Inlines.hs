@@ -207,7 +207,7 @@ pHardBreak = do -- assumes we've parsed \ already
 pSoftBreak :: P Inlines
 pSoftBreak = do
   endline
-  skipMany ws
+  skipMany spaceOrTab
   (mempty <$ eof) <|> pure softBreak
 
 pSymbol :: P Inlines
