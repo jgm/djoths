@@ -238,9 +238,9 @@ skipSome parser = parser *> skipMany parser
 -- | Succeeds if no more input.
 eof :: Parser s ()
 eof = Parser $ \st ->
-  if offset st >= B8.length (subject st)
-     then Just (st, ())
-     else Nothing
+  case current st of
+    Nothing -> Just (st, ())
+    Just _ -> Nothing
 
 -- | Returns current user state.
 getState :: Parser s s
