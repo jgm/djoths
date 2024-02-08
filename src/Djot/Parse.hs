@@ -116,8 +116,8 @@ parse parser ustate bs =
                                  , userState = ustate }
 
 -- | Given a number of bytes, advances the offset and updates line/column.
-advance :: Int -> ParserState s -> ParserState s
-advance !n = (appEndo . mconcat . replicate n . Endo) unsafeAdvanceByte
+unsafeAdvance :: Int -> ParserState s -> ParserState s
+unsafeAdvance !n = (appEndo . mconcat . replicate n . Endo) unsafeAdvanceByte
 
 -- | Advance the offset and line/column for consuming a given byte.
 unsafeAdvanceByte :: ParserState s -> ParserState s
@@ -151,7 +151,7 @@ peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
 skip :: Int -> Parser s ()
 skip !n = Parser $ \st ->
   if offset st + n <= B8.length (subject st)
-     then Just (advance n st, ())
+     then Just (unsafeAdvance n st, ())
      else Nothing
 
 -- | Parse a byte satisfying a predicate.
@@ -185,18 +185,18 @@ satisfy f = Parser $ \st ->
       | b1 .&. 0b11100000 == 0b11000000
       , b2 >= 0b10000000
       , !c <- chr (toCodePoint2 b1 b2)
-      , f c -> Just (advance 2 st, c)
+      , f c -> Just (unsafeAdvance 2 st, c)
       | b1 .&. 0b11110000 == 0b11100000
       , b2 >= 0b10000000
       , b3 >= 0b10000000
       , !c <- chr (toCodePoint3 b1 b2 b3)
-      , f c -> Just (advance 3 st, c)
+      , f c -> Just (unsafeAdvance 3 st, c)
       | b1 .&. 0b11111000 == 0b11110000
       , b2 >= 0b10000000
       , b3 >= 0b10000000
       , b4 >= 0b10000000
       , !c <- chr (toCodePoint4 b1 b2 b3 b4)
-      , f c -> Just (advance 4 st, c)
+      , f c -> Just (unsafeAdvance 4 st, c)
       | otherwise -> Nothing
  where
   toCodePoint2 a b =
@@ -299,8 +299,8 @@ optional_ pa = void pa <|> pure ()
 -- | Parse a bytestring.
 byteString :: ByteString -> Parser s ()
 byteString bs = Parser $ \st ->
-  if bs `B8.isPrefixOf` (B8.drop (offset st) (subject st))
-     then Just (advance (B.length bs) st, ())
+  if bs `B8.isPrefixOf` B8.drop (offset st) (subject st)
+     then Just (unsafeAdvance (B.length bs) st, ())
      else Nothing
 
 -- | Returns rest of input and moves to eof.
@@ -350,10 +350,8 @@ isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 spaceOrTab :: Parser s ()
 spaceOrTab = Parser $ \st ->
   case current st of
-    Just ' ' -> Just (st{ offset = offset st + 1
-                        , column = column st + 1 }, ())
-    Just '\t' -> Just (st{ offset = offset st + 1
-                         , column = column st + (4 - (column st `mod` 4)) }, ())
+    Just ' ' -> Just (unsafeAdvanceByte st, ())
+    Just '\t' -> Just (unsafeAdvanceByte st, ())
     _ -> Nothing
 
 -- | Skip 1 or more ASCII whitespace.
