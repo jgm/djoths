@@ -2,7 +2,7 @@ all: test build
 .PHONY: all
 
 test:
-	cabal test
+	cabal test --test-option=--hide-successes
 .PHONY: test
 
 build:
