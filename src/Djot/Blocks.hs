@@ -104,7 +104,7 @@ listItemSpec =
       ind <- sourceColumn
       ltypes <- pListStart
       skipMany spaceOrTab
-      tip :| _ <- getsP psContainerStack
+      tip :| _ <- psContainerStack <$> getState
       case blockContainsBlock (containerSpec tip) of
         Just ListItem -> pure ()
         _ -> addContainer listSpec ()
@@ -114,7 +114,7 @@ listItemSpec =
             (do skipMany spaceOrTab
                 curind <- sourceColumn
                 let liData = getContainerData container
-                tip :| _ <- getsP psContainerStack
+                tip :| _ <- psContainerStack <$> getState
                 guard (curind <= liIndent liData)
                 case blockName (containerSpec tip) of
                   "Para" -> void pListStart
@@ -387,11 +387,11 @@ sectionSpec =
                          let candidate
                                | n == 0 = base
                                | otherwise = base <> "-" <> B8.pack (show n)
-                         ids <- getsP psIds
+                         ids <- psIds <$> getState
                          if candidate `Set.member` ids
                             then generateId (n+1) base
                             else do
-                              modifyP $ \st ->
+                              updateState $ \st ->
                                 st{ psIds = Set.insert candidate (psIds st)
                                   , psAutoIds = Set.insert candidate
                                                    (psAutoIds st) }
@@ -400,7 +400,7 @@ sectionSpec =
                    pure (ident, mempty, normalizeLabel bs)
              -- add implicit reference
              let dest = "#" <> secid
-             modifyP $ \st -> st{ psAutoReferenceMap = insertReference label
+             updateState $ \st -> st{ psAutoReferenceMap = insertReference label
                                      (dest, Attr []) (psAutoReferenceMap st) }
 
              pure container{ containerData =
@@ -692,7 +692,7 @@ attrSpec =
       let ind = getContainerData container
       skipMany spaceOrTab
       curind <- sourceColumn
-      mbapstate <- getsP psAttrParserState
+      mbapstate <- psAttrParserState <$> getState
       if curind <= ind
          then pure False
          else do
@@ -702,7 +702,7 @@ attrSpec =
            case parseAttributes mbapstate lastLine of
              Done _ -> pure False
              Partial apstate' -> do
-               modifyP $ \st -> st{ psAttrParserState = Just apstate' }
+               updateState $ \st -> st{ psAttrParserState = Just apstate' }
                pure True
              Failed _ -> pure True -- not yet: keep going!
   , blockContainsBlock = Nothing
@@ -712,7 +712,7 @@ attrSpec =
       case parseAttributes Nothing bs of
         Done (attr, off)
           | B8.all isWs (B8.drop off bs) -> do
-             modifyP $ \st -> st{ psAttributes = psAttributes st <> attr }
+             updateState $ \st -> st{ psAttributes = psAttributes st <> attr }
              pure container
           | otherwise -> do
              ils <- parseTextLines container
@@ -747,7 +747,7 @@ referenceDefinitionSpec =
       let label = getContainerData container
       let attr = containerAttr container
       let dest = B.filter (> 32) . fold $ containerText container
-      modifyP $ \st ->
+      updateState $ \st ->
         st{ psReferenceMap = insertReference label (dest, attr)
                                  (psReferenceMap st) }
       pure container
@@ -784,7 +784,7 @@ footnoteSpec =
   , blockClose = \container -> do
       let FootnoteData _ label = getContainerData container
       let bls = finalizeChildren container
-      modifyP $ \st -> st{ psNoteMap = insertNote label bls (psNoteMap st) }
+      updateState $ \st -> st{ psNoteMap = insertNote label bls (psNoteMap st) }
       pure container
   , blockFinalize = const mempty
   }
@@ -850,24 +850,15 @@ data PState =
 
 type P = Parser PState
 
-getsP :: (PState -> a) -> P a
-getsP f = f <$> getState
-
-modifyP :: (PState -> PState) -> P ()
-modifyP = updateState
-
 pDoc :: P Doc
 pDoc = do
   bls <- pBlocks <* eof
-  notemap <- getsP psNoteMap
-  refmap <- getsP psReferenceMap
-  autorefmap <- getsP psAutoReferenceMap
-  autoids <- getsP psAutoIds
+  st <- getState
   pure $ Doc{ docBlocks = bls
-            , docFootnotes = notemap
-            , docReferences = refmap
-            , docAutoReferences = autorefmap
-            , docAutoIdentifiers = autoids }
+            , docFootnotes = psNoteMap st
+            , docReferences = psReferenceMap st
+            , docAutoReferences = psAutoReferenceMap st
+            , docAutoIdentifiers = psAutoIds st }
 
 pBlocks :: P Blocks
 pBlocks = processLines >> finalizeDocument
@@ -887,7 +878,7 @@ checkContinuations = go . reverse . NonEmpty.toList
 processLines :: P ()
 processLines = do
   -- check continuations for open containers and close any that don't match
-  containers <- getsP psContainerStack
+  containers <- psContainerStack <$> getState
   allContainersMatch <- checkContinuations containers
 
   -- check for new container starts and open if needed
@@ -899,7 +890,7 @@ processLines = do
                  blockName (containerSpec (NonEmpty.head containers)) == "Para"
 
     when isLazy $ -- restore original containers
-       modifyP (\st -> st{ psContainerStack = containers })
+       updateState (\st -> st{ psContainerStack = containers })
 
     tip <- getTip
 
@@ -922,7 +913,7 @@ processLines = do
 -- True if new container was started
 tryContainerStarts :: P Bool
 tryContainerStarts = do
-  (c :| _) <- getsP psContainerStack
+  (c :| _) <- psContainerStack <$> getState
   case blockContainsBlock (containerSpec c) of
     Just bt -> (do
       nextc <- lookahead (satisfyByte isAscii)
@@ -947,7 +938,7 @@ tryContainerStarts = do
 -- | Close and finalize containers, returning Blocks.
 finalizeDocument :: P Blocks
 finalizeDocument = do
-  cs <- getsP psContainerStack
+  cs <- psContainerStack <$> getState
   case cs of
     c :| [] -> pure $ finalize c
     _ -> closeCurrentContainer >> finalizeDocument
@@ -956,19 +947,19 @@ finalizeDocument = do
 -- | Close container and add to parent container.
 closeCurrentContainer :: P ()
 closeCurrentContainer = do
-  cs <- getsP psContainerStack
+  cs <- psContainerStack <$> getState
   cs' <- case cs of
            _ :| [] -> error "Attempted to close root document container"
            c :| rest -> do
              case containerAttr c of
                Attr as | Just ident <- lookup "id" as
-                 -> modifyP $ \st -> st{ psIds = Set.insert ident (psIds st) }
+                 -> updateState $ \st -> st{ psIds = Set.insert ident (psIds st) }
                _ -> pure ()
              c' <- blockClose (containerSpec c) c
              pure (c':|rest)
   curline <- sourceLine
   case cs' of
-    c :| (d:rest) -> modifyP $
+    c :| (d:rest) -> updateState $
         \st -> st{ psContainerStack =
                    d{ containerChildren = containerChildren d Seq.|>
                         c{ containerEndLine = curline - 1 } } :| rest }
@@ -977,26 +968,26 @@ closeCurrentContainer = do
 {-# INLINE modifyContainers #-}
 modifyContainers :: (NonEmpty Container -> NonEmpty Container) -> P ()
 modifyContainers f =
-  modifyP $ \st -> st{ psContainerStack = f (psContainerStack st) }
+  updateState $ \st -> st{ psContainerStack = f (psContainerStack st) }
 
 {-# INLINE addContainer #-}
 addContainer :: Typeable a => BlockSpec -> a -> P ()
 addContainer bspec bdata = do
   curline <- sourceLine
-  attr <- getsP psAttributes
+  attr <- psAttributes <$> getState
   let newcontainer = emptyContainer { containerSpec = bspec
                                     , containerStartLine = curline
                                     , containerData = toDyn bdata
                                     , containerAttr = attr }
   unless (blockName bspec == "Attributes") $
-    modifyP $ \st -> st{ psAttributes = mempty }
+    updateState $ \st -> st{ psAttributes = mempty }
   closeInappropriateContainers bspec
   modifyContainers (newcontainer NonEmpty.<|)
 
 closeInappropriateContainers :: BlockSpec -> P ()
 closeInappropriateContainers spec = do
   -- close containers until we get one that can accept this type of container
-  cs <- getsP psContainerStack
+  cs <- psContainerStack <$> getState
   case cs of
     c :| _
       | blockContainsBlock (containerSpec c) == Just (blockType spec) ->
@@ -1021,7 +1012,7 @@ gobbleSpaceToIndent indent = do
 {-# INLINE getTip #-}
 -- Get tip of container stack.
 getTip :: P Container
-getTip = NonEmpty.head <$> getsP psContainerStack
+getTip = NonEmpty.head . psContainerStack <$> getState
 
 {-# INLINE getContainerData #-}
 getContainerData :: Typeable a => Container -> a
