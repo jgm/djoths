@@ -923,9 +923,9 @@ tryContainerStarts = do
   (c :| _) <- getsP psContainerStack
   case blockContainsBlock (containerSpec c) of
     Just bt -> (do
-      nextc <- lookahead anyChar
+      nextc <- lookahead (satisfyByte isAscii)
       next <- if nextc == ' ' || nextc == '\t'
-                 then skipMany spaceOrTab *> lookahead anyChar
+                 then skipMany spaceOrTab *> lookahead (satisfyByte isAscii)
                  else pure nextc
       case next of
         '>' -> blockStart blockQuoteSpec
