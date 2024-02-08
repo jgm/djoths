@@ -126,11 +126,11 @@ advanceByteString :: ByteString -> ParserState s -> ParserState s
 advanceByteString bs st =
   B.foldl' go st bs
  where
-   go = flip advanceByte
+   go = flip advanceByte'
 
 -- | Advance the offset and line/column for consuming a given byte.
-advanceByte :: Word8 -> ParserState s -> ParserState s
-advanceByte = go
+advanceByte' :: Word8 -> ParserState s -> ParserState s
+advanceByte' = go
  where
    -- newline
    go 10 st = st{ offset = offset st + 1
@@ -146,6 +146,22 @@ advanceByte = go
      | w >= 0b11000000 = st{ offset = offset st + 1
                            , column = column st + 1 }
      | otherwise = st{ offset = offset st + 1 }
+
+-- | Advance the offset and line/column for consuming a given byte.
+unsafeAdvanceByte :: ParserState s -> ParserState s
+unsafeAdvanceByte st =
+  case B.index (subject st) (offset st) of
+    10 -> st{ offset = offset st + 1
+            , line = line st + 1
+            , column = 0 }
+    9 -> st{ offset = offset st + 1
+           , column = column st + (4 - (column st `mod` 4)) }
+    !w | w < 0x80 -> st{ offset = offset st + 1
+                       , column = column st + 1 }
+       -- utf8 multibyte: only count byte 1:
+       | w >= 0b11000000 -> st{ offset = offset st + 1
+                              , column = column st + 1 }
+       | otherwise -> st{ offset = offset st + 1 }
 
 -- | Returns current byte as Char.
 current :: ParserState s -> Maybe Char
@@ -170,14 +186,14 @@ skip !n = Parser $ \st ->
 satisfyByte :: (Char -> Bool) -> Parser s Char
 satisfyByte f = Parser $ \st ->
   case current st of
-    Just c | f c -> Just (advanceByte (toByte c) st, c)
+    Just c | f c -> Just (unsafeAdvanceByte st, c)
     _ -> Nothing
 
 -- | Skip byte satisfying a predicate.
 skipSatisfyByte :: (Char -> Bool) -> Parser s ()
 skipSatisfyByte f = Parser $ \st ->
   case current st of
-    Just c | f c -> Just (advanceByte (toByte c) st, ())
+    Just c | f c -> Just (unsafeAdvanceByte st, ())
     _ -> Nothing
 
 -- | Parse a (possibly multibyte) Char satisfying a predicate.
@@ -193,7 +209,7 @@ satisfy f = Parser $ \st ->
     Just b1
       | b1 < 0b10000000
       , !c <- chr (fromIntegral b1)
-      , f c -> Just (advanceByte (toByte c) st, c)
+      , f c -> Just (unsafeAdvanceByte st, c)
       | b1 .&. 0b11100000 == 0b11000000
       , b2 >= 0b10000000
       , !c <- chr (toCodePoint2 b1 b2)
@@ -232,7 +248,7 @@ anyChar = satisfy (const True)
 asciiChar :: Char -> Parser s ()
 asciiChar !c = Parser $ \st ->
   case current st of
-    Just d | d == c -> Just (advanceByte (toByte c) st, ())
+    Just d | d == c -> Just (unsafeAdvanceByte st, ())
     _ -> Nothing
 
 -- | Apply parser 0 or more times, discarding result.
