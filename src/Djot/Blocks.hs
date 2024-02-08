@@ -106,9 +106,11 @@ listItemSpec =
           True <$ fails
             (do skipMany spaceOrTab
                 curind <- sourceColumn
-                let liData = containerData container
+                let liIndent = case containerData container of
+                                 ListItemData i _ _ -> i
+                                 _ -> error "Missing ListItemData"
                 tip :| _ <- psContainerStack <$> getState
-                guard (curind <= liIndent liData)
+                guard (curind <= liIndent)
                 case blockName (containerSpec tip) of
                   "Para" -> void pListStart
                   _ -> pure ())
@@ -158,9 +160,6 @@ groupLists = snd . foldl' go ([], mempty)
                then (getListTypes cont, lists Seq.|> (getListTypes cont, Seq.singleton cont)) -- new list
                else (matchedTypes, rest Seq.|> (matchedTypes, cur Seq.|> cont))
 
-   getListTypes :: Container -> [ListType]
-   getListTypes cont = liTypes $ containerData cont
-
    matches :: ListType -> ListType -> Bool
    matches (Bullet b1) (Bullet b2) = b1 == b2
    matches (Ordered o1) (Ordered o2) =
@@ -169,6 +168,12 @@ groupLists = snd . foldl' go ([], mempty)
    matches Definition Definition = True
    matches Task{} Task{} = True
    matches _ _ = False
+
+
+getListTypes :: Container -> [ListType]
+getListTypes cont = case containerData cont of
+                      ListItemData _ tys _ -> tys
+                      _ -> error "Missing ListItemData"
 
 pOrderedListStart :: P [ListType]
 pOrderedListStart = do
@@ -301,9 +306,9 @@ itemsToList (ltypes, containers) =
             [] -> mempty
  where
    items = map finalize $ toList containers
-   getTaskStatus cont = case liTypes $ containerData cont of
+   getTaskStatus cont = case getListTypes cont of
                            ([Task stat] :: [ListType]) -> stat
-                           _ -> error "getTaskStatus: container data has wrong shape"
+                           _ -> error "getTaskStatus: wrong shape"
    -- when ambiguous between roman and lettered list, choose roman if start number is 1,
    -- otherwise lettered
    chooseOrderedAttr os =
@@ -334,11 +339,11 @@ hasChildrenSeparatedWithBlank :: Container -> Bool
 hasChildrenSeparatedWithBlank cont =
   or $ Seq.zipWith check children (Seq.drop 1 children)
  where
-   children = (if Definition `elem` liTypes lid then Seq.drop 1 else id) $
+   children = (if Definition `elem` liTypes then Seq.drop 1 else id) $
                   containerChildren cont
    check x y = (blockName (containerSpec y) /= "List") &&
                (containerStartLine y > containerEndLine x + 1)
-   lid = containerData cont
+   liTypes = getListTypes cont
 
 toDefinition :: Blocks -> (Inlines, Blocks)
 toDefinition bs =
@@ -836,10 +841,7 @@ data Container =
 
 data ContainerData =
     NoData
-  | ListItemData
-    { liIndent :: Int
-    , liTypes :: [ListType]
-    , liHasBlankLines :: Bool }
+  | ListItemData Int [ListType] Bool
   | SectionData Int (Maybe ByteString)
   | HeadingData Int Inlines
   | CodeBlockData ByteString ByteString Int
