@@ -10,7 +10,7 @@ where
 
 import Prelude hiding (div)
 import Text.Read (readMaybe)
-import Data.Char (ord, isAsciiLower, isAsciiUpper, isAscii, isAlphaNum)
+import Data.Char (ord, isAsciiLower, isAsciiUpper, isAscii, isAlphaNum, isDigit)
 import Data.Foldable as F
 import Djot.Parse
 import Djot.AST
@@ -23,13 +23,13 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Control.Monad (replicateM_, void, mzero, unless, when, guard, foldM)
-import Data.Dynamic
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
+import Data.Typeable (Typeable)
 -- import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
@@ -88,13 +88,6 @@ docSpec =
   , blockFinalize = finalizeChildren
   }
 
-data ListItemData =
-  ListItemData
-  { liIndent :: Int
-  , liTypes :: [ListType]
-  , liHasBlankLines :: Bool }
-  deriving (Show, Eq, Ord, Typeable)
-
 listItemSpec :: BlockSpec
 listItemSpec =
   BlockSpec
@@ -107,13 +100,13 @@ listItemSpec =
       tip :| _ <- psContainerStack <$> getState
       case blockContainsBlock (containerSpec tip) of
         Just ListItem -> pure ()
-        _ -> addContainer listSpec ()
+        _ -> addContainer listSpec NoData
       addContainer listItemSpec (ListItemData ind ltypes False)
   , blockContinue = \container -> do
           True <$ fails
             (do skipMany spaceOrTab
                 curind <- sourceColumn
-                let liData = getContainerData container
+                let liData = containerData container
                 tip :| _ <- psContainerStack <$> getState
                 guard (curind <= liIndent liData)
                 case blockName (containerSpec tip) of
@@ -125,13 +118,6 @@ listItemSpec =
   , blockClose = pure
   , blockFinalize = finalizeChildren
   }
-
-data ListType =
-    Bullet Char
-  | Ordered OrderedListAttributes
-  | Definition
-  | Task TaskStatus
-  deriving (Show, Ord, Eq)
 
 pListStart :: P [ListType]
 pListStart = pBulletListStart <|> pDefinitionListStart <|> pOrderedListStart
@@ -173,7 +159,7 @@ groupLists = snd . foldl' go ([], mempty)
                else (matchedTypes, rest Seq.|> (matchedTypes, cur Seq.|> cont))
 
    getListTypes :: Container -> [ListType]
-   getListTypes cont = maybe [] liTypes $ fromDynamic (containerData cont)
+   getListTypes cont = liTypes $ containerData cont
 
    matches :: ListType -> ListType -> Bool
    matches (Bullet b1) (Bullet b2) = b1 == b2
@@ -204,7 +190,7 @@ pOrderedListStart = do
         , orderedListStart = start }) stylesAndStarts
  where
   decimalStart = do
-    digits <- some (satisfyByte (\c -> c >= '0' && c <= '9'))
+    digits <- some (satisfyByte isDigit)
     case readMaybe digits of
       Just n -> pure [(Decimal, n)]
       Nothing -> mzero
@@ -315,8 +301,8 @@ itemsToList (ltypes, containers) =
             [] -> mempty
  where
    items = map finalize $ toList containers
-   getTaskStatus cont = case liTypes <$> fromDynamic (containerData cont) of
-                           Just ([Task stat] :: [ListType]) -> stat
+   getTaskStatus cont = case liTypes $ containerData cont of
+                           ([Task stat] :: [ListType]) -> stat
                            _ -> error "getTaskStatus: container data has wrong shape"
    -- when ambiguous between roman and lettered list, choose roman if start number is 1,
    -- otherwise lettered
@@ -352,7 +338,7 @@ hasChildrenSeparatedWithBlank cont =
                   containerChildren cont
    check x y = (blockName (containerSpec y) /= "List") &&
                (containerStartLine y > containerEndLine x + 1)
-   lid = getContainerData cont
+   lid = containerData cont
 
 toDefinition :: Blocks -> (Inlines, Blocks)
 toDefinition bs =
@@ -375,8 +361,12 @@ sectionSpec =
       case containerChildren container of
         h Seq.:<| _
           | blockName (containerSpec h) == "Heading" -> do
-             let SectionData lev _ = getContainerData container
-             let HeadingData _ ils = getContainerData h
+             let lev = case containerData container of
+                         SectionData n _ -> n
+                         _ -> error "Missing SectionData"
+             let ils = case containerData h of
+                         HeadingData _ xs -> xs
+                         _ -> error "Missing HeadingData"
              (secid, attr, label) <- do
                let bs = inlinesToByteString ils
                let Attr ats = containerAttr container
@@ -404,12 +394,14 @@ sectionSpec =
                                      (dest, Attr []) (psAutoReferenceMap st) }
 
              pure container{ containerData =
-                               toDyn $ SectionData lev (Just secid)
+                               SectionData lev (Just secid)
                            , containerAttr = containerAttr container <> attr }
         _ -> pure container
   , blockFinalize = \container ->
       let blocks = finalizeChildren container
-          SectionData _ secid = getContainerData container
+          secid = case containerData container of
+                    SectionData _ ident -> ident
+                    _ -> error "Missing SectionData"
       in  maybe id (\ident -> addAttr (Attr [("id", ident)])) secid
            $ section blocks
   }
@@ -423,7 +415,7 @@ blockQuoteSpec =
       asciiChar '>'
       followedByWhitespace
       skipMany spaceOrTab
-      addContainer blockQuoteSpec ()
+      addContainer blockQuoteSpec NoData
   , blockContinue = \_ -> do
       skipMany spaceOrTab
       asciiChar '>'
@@ -443,7 +435,7 @@ tableSpec =
   , blockType = Normal
   , blockStart = do
       lookahead pRawTableRow
-      addContainer tableSpec (mempty :: [[Cell]])
+      addContainer tableSpec (TableData mempty)
   , blockContinue = \container ->
       -- TODO: this is inefficient; we parse the inline contents
       -- twice. Find a better way.
@@ -457,9 +449,11 @@ tableSpec =
   , blockClose = \container -> do
       let lns = containerText container
       rows <- reverse . snd <$> foldM parseTableRow ([], []) lns
-      pure $ container{ containerData = toDyn rows }
+      pure $ container{ containerData = TableData rows }
   , blockFinalize = \container ->
-      let rows = getContainerData container
+      let rows = case containerData container of
+                   TableData rs -> rs
+                   _ -> error "Missing TableData"
           mbCaption =
             case Seq.viewr (containerChildren container) of
               Seq.EmptyR -> Nothing
@@ -526,11 +520,13 @@ captionSpec =
       ind <- sourceColumn
       asciiChar '^'
       void spaceOrTab
-      addContainer captionSpec ind
+      addContainer captionSpec $ CaptionData ind
   , blockContinue = \container -> (do
       skipMany spaceOrTab
       curind <- sourceColumn
-      let ind = getContainerData container
+      let ind = case containerData container of
+                  CaptionData i -> i
+                  _ -> error "Missing CaptionData"
       guard (curind > ind) <|> followedByBlankLine
       pure True) <|> pure False
   , blockContainsBlock = Just Normal
@@ -550,21 +546,13 @@ thematicBreakSpec =
                         *> skipMany spaceOrTab
       breakChar *> breakChar *> breakChar *> skipMany breakChar
       lookahead endline
-      addContainer thematicBreakSpec ()
+      addContainer thematicBreakSpec NoData
   , blockContinue = \_ -> pure False
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = pure
   , blockFinalize = const thematicBreak
   }
-
-data SectionData =
-  SectionData Int (Maybe ByteString)
-  deriving (Show, Eq, Ord, Typeable)
-
-data HeadingData =
-  HeadingData Int Inlines
-  deriving (Show, Eq, Ord, Typeable)
 
 headingSpec :: BlockSpec
 headingSpec =
@@ -580,7 +568,9 @@ headingSpec =
       addContainer headingSpec $ HeadingData lev mempty
   , blockContinue = \container -> do
        do skipMany spaceOrTab
-          let HeadingData lev _ = getContainerData container
+          let lev = case containerData container of
+                      HeadingData n _ -> n
+                      _ -> error "Missing HeadingData"
           (True <$ (do lev' <- length <$> some (asciiChar '#')
                        guard (lev' == lev)
                        skipMany spaceOrTab))
@@ -591,16 +581,17 @@ headingSpec =
   , blockContainsLines = True
   , blockClose = \container -> do
       ils <- parseTextLines container
-      let HeadingData lev _ = getContainerData container
-      pure $ container{ containerData = toDyn $ HeadingData lev ils }
+      let lev = case containerData container of
+                  HeadingData n _ -> n
+                  _ -> error "Missing HeadingData"
+      pure $ container{ containerData = HeadingData lev ils }
   , blockFinalize = \container ->
-      let HeadingData lev title = getContainerData container
+      let (lev, title) =
+            case containerData container of
+              HeadingData l t -> (l, t)
+              _ -> error "Missing HeadingData"
       in  heading lev title
   }
-
-data CodeBlockData =
-  CodeBlockData ByteString ByteString Int
-  deriving (Eq, Show, Ord, Typeable)
 
 codeBlockSpec :: BlockSpec
 codeBlockSpec =
@@ -618,7 +609,9 @@ codeBlockSpec =
       lookahead endline
       addContainer codeBlockSpec (CodeBlockData ticks lang indent)
   , blockContinue = \container -> do
-      let CodeBlockData ticks _ indent = getContainerData container
+      let (ticks, indent) = case containerData container of
+                              CodeBlockData t _ i -> (t, i)
+                              _ -> error "Missing CodeBlockData"
       gobbleSpaceToIndent indent
       (do skipMany spaceOrTab
           byteString ticks
@@ -631,17 +624,15 @@ codeBlockSpec =
   , blockContainsLines = True
   , blockClose = pure
   , blockFinalize = \container ->
-      let CodeBlockData _ lang _ = getContainerData container
+      let lang = case containerData container of
+                   CodeBlockData _ l _ -> l
+                   _ -> error "Missing CodeBlockData"
       -- drop first line which should be empty
           bs = fold (Seq.drop 1 $ containerText container)
       in  case B8.uncons lang of
             Just ('=', fmt) -> rawBlock (Format fmt) bs
             _ -> codeBlock lang bs
   }
-
-data DivData =
-  DivData ByteString ByteString
-  deriving (Show, Eq, Ord, Typeable)
 
 divSpec :: BlockSpec
 divSpec =
@@ -661,7 +652,9 @@ divSpec =
       -- see jgm/djot.js#109
       guard $ blockName (containerSpec tip) /= "CodeBlock"
       skipMany spaceOrTab
-      let DivData colons _ = getContainerData container
+      let colons = case containerData container of
+                     DivData c _ -> c
+                     _ -> error "Missing DivData"
       byteString colons
       skipMany (asciiChar ':')
       skipMany spaceOrTab
@@ -671,7 +664,9 @@ divSpec =
   , blockContainsLines = False
   , blockClose = pure
   , blockFinalize = \container ->
-      let DivData _ label = getContainerData container
+      let label = case containerData container of
+                     DivData _ l -> l
+                     _ -> error "Missing DivData"
       -- drop first line which should be empty
           bls = finalizeChildren container
       in  (if B.null label
@@ -687,9 +682,11 @@ attrSpec =
   , blockStart = do
       ind <- sourceColumn
       lookahead $ asciiChar '{'
-      addContainer attrSpec ind
+      addContainer attrSpec $ AttributeData ind
   , blockContinue = \container -> do
-      let ind = getContainerData container
+      let ind = case containerData container of
+                  AttributeData i -> i
+                  _ -> error "Missing AttributeData"
       skipMany spaceOrTab
       curind <- sourceColumn
       mbapstate <- psAttrParserState <$> getState
@@ -738,13 +735,16 @@ referenceDefinitionSpec =
       asciiChar ']'
       asciiChar ':'
       skipMany spaceOrTab
-      addContainer referenceDefinitionSpec (normalizeLabel label)
+      addContainer referenceDefinitionSpec
+        (ReferenceData (normalizeLabel label))
   , blockContinue = \_ ->
       True <$ skipSome spaceOrTab `notFollowedBy` endline
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = \container -> do
-      let label = getContainerData container
+      let label = case containerData container of
+                    ReferenceData l -> l
+                    _ -> error "Missing ReferenceData"
       let attr = containerAttr container
       let dest = B.filter (> 32) . fold $ containerText container
       updateState $ \st ->
@@ -753,10 +753,6 @@ referenceDefinitionSpec =
       pure container
   , blockFinalize = const mempty
   }
-
-data FootnoteData =
-  FootnoteData Int ByteString
-  deriving (Show, Ord, Eq, Typeable)
 
 footnoteSpec :: BlockSpec
 footnoteSpec =
@@ -776,13 +772,17 @@ footnoteSpec =
   , blockContinue = \container -> (do
       skipMany spaceOrTab
       curind <- sourceColumn
-      let FootnoteData ind _ = getContainerData container
+      let ind = case containerData container of
+                  FootnoteData i _ -> i
+                  _ -> error "Missing FootnoteData"
       guard (curind > ind) <|> followedByBlankLine
       pure True) <|> pure False
   , blockContainsBlock = Just Normal
   , blockContainsLines = True
   , blockClose = \container -> do
-      let FootnoteData _ label = getContainerData container
+      let label = case containerData container of
+                     FootnoteData _ l -> l
+                     _ -> error "Missing FootnoteData"
       let bls = finalizeChildren container
       updateState $ \st -> st{ psNoteMap = insertNote label bls (psNoteMap st) }
       pure container
@@ -795,8 +795,7 @@ paraSpec =
   BlockSpec
   { blockName = "Para"
   , blockType = Normal
-  , blockStart = fails followedByBlankLine *>
-                     addContainer paraSpec (mempty :: Inlines)
+  , blockStart = fails followedByBlankLine *> addContainer paraSpec NoData
   , blockContinue = \_ -> do
       skipMany spaceOrTab
       (False <$ lookahead (endline <|> eof)) <|> pure True
@@ -819,7 +818,7 @@ emptyContainer =
             , containerInlines = mempty
             , containerStartLine = 1
             , containerEndLine = 0
-            , containerData = toDyn ()
+            , containerData = NoData
             , containerAttr = mempty
             }
 
@@ -831,9 +830,33 @@ data Container =
   , containerInlines :: Inlines
   , containerStartLine :: Int
   , containerEndLine   :: Int
-  , containerData :: Dynamic
+  , containerData :: ContainerData
   , containerAttr :: Attr
   }
+
+data ContainerData =
+    NoData
+  | ListItemData
+    { liIndent :: Int
+    , liTypes :: [ListType]
+    , liHasBlankLines :: Bool }
+  | SectionData Int (Maybe ByteString)
+  | HeadingData Int Inlines
+  | CodeBlockData ByteString ByteString Int
+  | DivData ByteString ByteString
+  | FootnoteData Int ByteString
+  | TableData [[Cell]]
+  | CaptionData Int
+  | AttributeData Int
+  | ReferenceData ByteString
+  deriving (Show, Eq, Ord, Typeable)
+
+data ListType =
+    Bullet Char
+  | Ordered OrderedListAttributes
+  | Definition
+  | Task TaskStatus
+  deriving (Show, Ord, Eq)
 
 data PState =
   PState
@@ -971,13 +994,13 @@ modifyContainers f =
   updateState $ \st -> st{ psContainerStack = f (psContainerStack st) }
 
 {-# INLINE addContainer #-}
-addContainer :: Typeable a => BlockSpec -> a -> P ()
+addContainer :: BlockSpec -> ContainerData -> P ()
 addContainer bspec bdata = do
   curline <- sourceLine
   attr <- psAttributes <$> getState
   let newcontainer = emptyContainer { containerSpec = bspec
                                     , containerStartLine = curline
-                                    , containerData = toDyn bdata
+                                    , containerData = bdata
                                     , containerAttr = attr }
   unless (blockName bspec == "Attributes") $
     updateState $ \st -> st{ psAttributes = mempty }
@@ -1014,18 +1037,11 @@ gobbleSpaceToIndent indent = do
 getTip :: P Container
 getTip = NonEmpty.head . psContainerStack <$> getState
 
-{-# INLINE getContainerData #-}
-getContainerData :: Typeable a => Container -> a
-getContainerData cont =
-   case fromDynamic (containerData cont) of
-      Nothing -> error $ blockName (containerSpec cont) <> " missing data"
-      Just dat -> dat
-
 closeContainingSections :: Int -> P ()
 closeContainingSections lev = do
   tip <- getTip
-  case fromDynamic (containerData tip) of
-    Just (SectionData lev' _) | lev' >= lev ->
+  case containerData tip of
+    SectionData lev' _ | lev' >= lev ->
       closeCurrentContainer >>
       closeContainingSections lev
     _ -> pure ()
