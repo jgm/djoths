@@ -42,14 +42,13 @@ module Djot.Parse
 where
 
 import Data.Monoid (Endo(..))
-import Data.Word (Word8)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Control.Applicative
 import Control.Monad (void, MonadPlus(..))
 import Data.Bifunctor (first)
-import Data.Char (chr, ord)
+import Data.Char (chr)
 import Data.Bits
 import Data.Maybe (fromMaybe)
 import Data.Text.Encoding (decodeUtf8With, encodeUtf8)
@@ -119,32 +118,6 @@ parse parser ustate bs =
 -- | Given a number of bytes, advances the offset and updates line/column.
 advance :: Int -> ParserState s -> ParserState s
 advance !n = (appEndo . mconcat . replicate n . Endo) unsafeAdvanceByte
-
--- | Advance the offset and line/column for consuming a bytestring.
-advanceByteString :: ByteString -> ParserState s -> ParserState s
-advanceByteString bs st =
-  B.foldl' go st bs
- where
-   go = flip advanceByte'
-
--- | Advance the offset and line/column for consuming a given byte.
-advanceByte' :: Word8 -> ParserState s -> ParserState s
-advanceByte' = go
- where
-   -- newline
-   go 10 st = st{ offset = offset st + 1
-                , line = line st + 1
-                , column = 0 }
-   -- tab
-   go 9 st = st{ offset = offset st + 1
-               , column = column st + (4 - (column st `mod` 4)) }
-   go !w st
-     | w < 0x80 = st{ offset = offset st + 1
-                    , column = column st + 1 }
-     -- utf8 multibyte: only count byte 1:
-     | w >= 0b11000000 = st{ offset = offset st + 1
-                           , column = column st + 1 }
-     | otherwise = st{ offset = offset st + 1 }
 
 -- | Advance the offset and line/column for consuming a given byte.
 unsafeAdvanceByte :: ParserState s -> ParserState s
@@ -327,7 +300,7 @@ optional_ pa = void pa <|> pure ()
 byteString :: ByteString -> Parser s ()
 byteString bs = Parser $ \st ->
   if bs `B8.isPrefixOf` (B8.drop (offset st) (subject st))
-     then Just (advanceByteString bs st, ())
+     then Just (advance (B.length bs) st, ())
      else Nothing
 
 -- | Returns rest of input and moves to eof.
@@ -416,6 +389,3 @@ strToUtf8 = encodeUtf8 . T.pack
 
 utf8ToStr :: ByteString -> String
 utf8ToStr = T.unpack . decodeUtf8With lenientDecode
-
-toByte :: Char -> Word8
-toByte = fromIntegral . ord
