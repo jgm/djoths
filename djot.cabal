@@ -41,7 +41,6 @@ executable djoths
     main-is:          Main.hs
     build-depends:    base,
                       djot,
-                      flatparse,
                       bytestring,
                       containers,
                       text,
