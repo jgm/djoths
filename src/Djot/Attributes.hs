@@ -40,7 +40,7 @@ pAttributes :: Parser s Attr
 pAttributes = do
   bs <- lookahead takeRest
   case parseAttributes Nothing bs of
-    Done (attr, off) -> attr <$ skip off
+    Done (attr, off) -> attr <$ skipBytes off
     _ -> failed
 
 data AttrParseResult =

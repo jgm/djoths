@@ -206,7 +206,7 @@ pHardBreak = do -- assumes we've parsed \ already
 
 pSoftBreak :: P Inlines
 pSoftBreak = do
-  asciiChar '\n'
+  endline
   skipMany ws
   (mempty <$ eof) <|> pure softBreak
 

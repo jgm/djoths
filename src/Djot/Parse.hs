@@ -3,7 +3,7 @@
 module Djot.Parse
 (   Parser
   , parse
-  , skip
+  , skipBytes
   , asciiChar
   , satisfyByte
   , skipSatisfyByte
@@ -148,8 +148,8 @@ peekBack :: Parser s (Maybe Char)
 peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
 
 -- | Skip $n$ bytes.
-skip :: Int -> Parser s ()
-skip !n = Parser $ \st ->
+skipBytes :: Int -> Parser s ()
+skipBytes !n = Parser $ \st ->
   if offset st + n <= B8.length (subject st)
      then Just (unsafeAdvance n st, ())
      else Nothing
