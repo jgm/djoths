@@ -337,9 +337,8 @@ endline = branch (asciiChar '\r') (optional_ (asciiChar '\n')) (asciiChar '\n')
 restOfLine :: Parser s ByteString
 restOfLine =
   byteStringOf $
-    (skipMany (skipSatisfyByte (\c -> c /= '\n' && c /= '\r')) <* endline)
-    <|>
-    skipSome (skipSatisfyByte (const True))
+    skipMany (skipSatisfyByte (\c -> c /= '\n' && c /= '\r'))
+      <* optional_ endline
 
 {-# INLINE isWs #-}
 -- | Is space, tab, `\r`, or `\n`.
