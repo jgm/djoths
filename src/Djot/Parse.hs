@@ -306,8 +306,8 @@ byteString bs = Parser $ \st ->
 -- | Returns rest of input and moves to eof.
 takeRest :: Parser s ByteString
 takeRest = Parser $ \st ->
-  Just (st{ offset = B8.length (subject st) }
-       , B8.drop (offset st) (subject st) )
+  Just (unsafeAdvance (B8.length (subject st) - offset st) st,
+         B8.drop (offset st) (subject st))
 
 -- | Returns byte offset in input.
 getOffset :: Parser s Int
