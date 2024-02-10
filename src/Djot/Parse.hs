@@ -163,7 +163,7 @@ current st = subject st B8.!? offset st
 peek :: Parser s (Maybe Char)
 peek = Parser $ \st -> Just (st, current st)
 
--- | Returns previous byte as Char.
+-- | Returns previous byte as Char.  Doesn't cross chunk boundaries.
 peekBack :: Parser s (Maybe Char)
 peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
 
