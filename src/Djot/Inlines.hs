@@ -15,7 +15,7 @@ import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Djot.Parse
-import Djot.Options (ParseOptions(..))
+import Djot.Options (ParseOptions(..), SourcePosOption(..))
 import Djot.Attributes (pAttributes)
 import Djot.AST
 import Text.Printf (printf)
@@ -118,12 +118,12 @@ pInline = do
   eline <- sourceLine
   ecol <- sourceColumn
   opts <- options <$> getState
-  if sourcePositions opts
-     then pure $
+  case sourcePositions opts of
+     AllSourcePos -> pure $
        addAttr (Attr [("data-pos", B8.pack $
                           printf "%d:%d-%d:%d" sline scol eline ecol)])
                res
-     else pure res
+     _ -> pure res
 
 pOptionalAttributes :: Inlines -> P Inlines
 pOptionalAttributes (Many ils) = pAddAttributes (Many ils) <|> pure (Many ils)

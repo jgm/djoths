@@ -11,7 +11,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder ( toLazyByteString )
-import Djot ( ParseOptions(..), RenderOptions(..),
+import Djot ( ParseOptions(..), RenderOptions(..), SourcePosOption(..),
               parseDoc, renderHtml, renderDjot )
 import Djot.Parse ( parse, satisfy, strToUtf8, utf8ToStr, Chunk(..) )
 import Djot.AST
@@ -24,7 +24,7 @@ main = do
   specTests <- filter ((== ".test") . takeExtension) <$>
                   getDirectoryContents "test"
   tests <- mapM (\fp -> (fp,) <$> getSpecTests ("test" </> fp)) specTests
-  let parser = parseDoc ParseOptions{ sourcePositions = False } . BL.toStrict
+  let parser = parseDoc ParseOptions{ sourcePositions = NoSourcePos } . BL.toStrict
   defaultMain $ testGroup "Tests" $
     [ testGroup "djot -> html"
         (map (\(fp, ts) ->
@@ -37,7 +37,7 @@ main = do
     , testGroup "Djot.Parse" parserTests
     , testGroup "Fuzz"
        [testProperty "parses all inputs"
-         (\s -> case parseDoc ParseOptions{ sourcePositions = False }
+         (\s -> case parseDoc ParseOptions{ sourcePositions = NoSourcePos }
                  (strToUtf8 s) of
                     Left _ -> False
                     Right _ -> True)

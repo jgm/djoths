@@ -1,12 +1,13 @@
 {-# LANGUAGE StrictData #-}
 module Djot.Options
 ( ParseOptions(..)
-, RenderOptions(..) )
+, RenderOptions(..)
+, SourcePosOption(..) )
 where
 
 data ParseOptions =
   ParseOptions
-  { sourcePositions :: Bool -- ^ Add attributes for source lines
+  { sourcePositions :: SourcePosOption -- ^ Add attributes for source lines
   }
   deriving (Show)
 
@@ -15,3 +16,7 @@ data RenderOptions =
   { preserveSoftBreaks :: Bool -- ^ Preserve soft breaks as in the source
   }
   deriving (Show)
+
+data SourcePosOption =
+  NoSourcePos | BlockSourcePos | AllSourcePos
+  deriving (Show, Eq, Ord)

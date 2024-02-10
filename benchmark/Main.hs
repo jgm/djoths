@@ -6,7 +6,7 @@
 import Test.Tasty.Bench
 import Data.Functor.Identity  -- base >= 4.8
 import qualified Data.ByteString as B
-import Djot ( ParseOptions(..), RenderOptions(..),
+import Djot ( ParseOptions(..), RenderOptions(..), SourcePosOption(..),
               parseDoc, renderHtml, renderDjot )
 import Data.ByteString.Builder ( toLazyByteString )
 import Text.DocLayout (render)
@@ -21,23 +21,28 @@ main = do
   defaultMain $
    map (\(fn, bs) ->
      bench ("parse " <> fn) $
-       whnf (parseDoc ParseOptions{ sourcePositions = False }) bs)
+       whnf (parseDoc ParseOptions{ sourcePositions = NoSourcePos }) bs)
+     files
+   ++
+   map (\(fn, bs) ->
+     bench ("parse w/ block source positions only " <> fn) $
+       whnf (parseDoc ParseOptions{ sourcePositions = BlockSourcePos }) bs)
      files
    ++
    map (\(fn, bs) ->
      bench ("parse w/ source positions " <> fn) $
-       whnf (parseDoc ParseOptions{ sourcePositions = True }) bs)
+       whnf (parseDoc ParseOptions{ sourcePositions = AllSourcePos }) bs)
      files
    ++
    map (\(fn, bs) ->
-     let doc = either error id $ parseDoc ParseOptions{ sourcePositions = False } bs
+     let doc = either error id $ parseDoc ParseOptions{ sourcePositions = NoSourcePos } bs
      in bench ("renderHtml " <> fn) $
            nf (BL.toStrict . toLazyByteString .
                renderHtml RenderOptions{preserveSoftBreaks = True}) doc)
      files
    ++
    map (\(fn, bs) ->
-     let doc = either error id $ parseDoc ParseOptions{ sourcePositions = False } bs
+     let doc = either error id $ parseDoc ParseOptions{ sourcePositions = NoSourcePos } bs
      in bench ("renderDjot " <> fn) $
           nf (render (Just 72) .
           renderDjot RenderOptions{preserveSoftBreaks = True}) doc)

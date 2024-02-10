@@ -16,7 +16,7 @@ import Data.Foldable as F
 import Djot.Parse
 import Djot.AST
 import Djot.Inlines (parseInlines, parseTableCells)
-import Djot.Options (ParseOptions(..))
+import Djot.Options (ParseOptions(..), SourcePosOption(..))
 import Djot.Attributes (parseAttributes, AttrParserState, AttrParseResult(..))
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
@@ -1037,7 +1037,7 @@ addContainer bspec bdata = do
                                     , containerEndColumn = curcol
                                     , containerData = bdata
                                     , containerAttr = attr
-                                    , containerSourcePos = sourcePositions opts }
+                                    , containerSourcePos = sourcePositions opts /= NoSourcePos }
   unless (blockName bspec == "Attributes") $
     updateState $ \st -> st{ psAttributes = mempty }
   closeInappropriateContainers bspec

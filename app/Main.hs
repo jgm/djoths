@@ -4,7 +4,7 @@ module Main where
 
 import qualified Data.ByteString as B
 import Data.ByteString.Builder (hPutBuilder)
-import Djot ( ParseOptions(..), RenderOptions(..),
+import Djot ( ParseOptions(..), RenderOptions(..), SourcePosOption(..),
               parseDoc, renderHtml, renderDjot )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
@@ -24,11 +24,11 @@ data Opts =
           , files :: [FilePath]
           , wrap :: WrapOption
           , columns :: Int
-          , sourcePos :: Bool }
+          , sourcePos :: SourcePosOption }
 
 parseOpts :: [String] -> IO Opts
 parseOpts = go Opts{ format = Html, files = [], wrap = Preserve, columns = 72,
-                     sourcePos = False }
+                     sourcePos = NoSourcePos }
  where
    go opts [] = pure opts
    go opts ("--wrap" : as) =
@@ -49,13 +49,17 @@ parseOpts = go Opts{ format = Html, files = [], wrap = Preserve, columns = 72,
        "ast" : as' -> go opts{ format = Ast } as'
        _ -> err "--to must be followed by djot, html, or ast"
    go opts ("--sourcepos" : as) =
-     go opts{ sourcePos = True } as
+     case as of
+       ("none":as') -> go opts{ sourcePos = NoSourcePos } as'
+       ("block":as') -> go opts{ sourcePos = BlockSourcePos } as'
+       ("all":as') -> go opts{ sourcePos = AllSourcePos } as'
+       _ -> err "--sourcepos takes an argument (none|block|all)"
    go _opts ("--help" : _) = do
      putStrLn "djoths [options] [files]"
-     putStrLn "  --to djot|html|ast"
-     putStrLn "  --wrap auto|preserve|none"
+     putStrLn "  --to djot|html*|ast"
+     putStrLn "  --wrap auto|preserve*|none"
      putStrLn "  --columns NUMBER"
-     putStrLn "  --sourcepos"
+     putStrLn "  --sourcepos none*|block|all"
      putStrLn "  --help"
      exitSuccess
    go opts (xs@('-':_) : as) =
