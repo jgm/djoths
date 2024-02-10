@@ -72,13 +72,10 @@ toReferences (ReferenceMap refs) =
   (<> cr) . vcat <$> mapM toReference (M.toList refs)
 
 toReference :: (ByteString, (ByteString, Attr)) -> State BState (Layout.Doc Text)
-toReference (label, (url, attr)) =
-  case attr of
-    Attr [("_implicit",_)] -> pure mempty  -- implicit reference
-    _ -> do
-       attr' <- toLayout attr
-       let ref = "[" <> literal (fromUtf8 label) <> "]:" <+> literal (fromUtf8 url)
-       pure $ attr' $$ ref
+toReference (label, (url, attr)) = do
+  attr' <- toLayout attr
+  let ref = "[" <> literal (fromUtf8 label) <> "]:" <+> literal (fromUtf8 url)
+  pure $ attr' $$ ref
 
 toNotes :: State BState (Layout.Doc Text)
 toNotes = do
@@ -153,10 +150,10 @@ instance ToLayout Attr where
                 else "{" <> contents <> "}"
        where
          contents = hsep (map go kvs)
+         go ("data-sourcepos",_) = mempty
          go ("id",ident) = literal ("#" <> fromUtf8 ident)
          go ("class", classes') = hsep $ map (("." <>) . literal)
                                        $ T.words $ fromUtf8 classes'
-         go ("_implicit",_) = mempty
          go (k,v) = literal (fromUtf8 k) <> "=" <>
                        doubleQuotes (literal (escapeDjot Normal v))
 

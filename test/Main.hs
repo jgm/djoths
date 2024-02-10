@@ -23,7 +23,7 @@ main = do
   specTests <- filter ((== ".test") . takeExtension) <$>
                   getDirectoryContents "test"
   tests <- mapM (\fp -> (fp,) <$> getSpecTests ("test" </> fp)) specTests
-  let parser = parseDoc ParseOptions . BL.toStrict
+  let parser = parseDoc ParseOptions{ sourcePositions = False } . BL.toStrict
   defaultMain $ testGroup "Tests" $
     [ testGroup "djot -> html"
         (map (\(fp, ts) ->
@@ -36,7 +36,8 @@ main = do
     , testGroup "Djot.Parse" parserTests
     , testGroup "Fuzz"
        [testProperty "parses all inputs"
-         (\s -> case parseDoc ParseOptions (strToUtf8 s) of
+         (\s -> case parseDoc ParseOptions{ sourcePositions = False }
+                 (strToUtf8 s) of
                     Left _ -> False
                     Right _ -> True)
        ]

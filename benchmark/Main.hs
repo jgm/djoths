@@ -20,15 +20,25 @@ main = do
   files <- mapM (\fn -> (fn,) <$> B.readFile ("benchmark" </> fn)) fns
   defaultMain $
    map (\(fn, bs) ->
-     bench ("parse " <> fn) $ whnf (parseDoc ParseOptions) bs)
+     bench ("parse " <> fn) $
+       whnf (parseDoc ParseOptions{ sourcePositions = False }) bs)
      files
    ++
    map (\(fn, bs) ->
-     let doc = either error id $ parseDoc ParseOptions bs
-     in bench ("renderHtml " <> fn) $ nf (BL.toStrict . toLazyByteString . renderHtml RenderOptions{preserveSoftBreaks = True}) doc)
+     bench ("parse w/ source positions " <> fn) $
+       whnf (parseDoc ParseOptions{ sourcePositions = True }) bs)
      files
    ++
    map (\(fn, bs) ->
-     let doc = either error id $ parseDoc ParseOptions bs
-     in bench ("renderDjot " <> fn) $ nf (render (Just 72) . renderDjot RenderOptions{preserveSoftBreaks = True}) doc)
+     let doc = either error id $ parseDoc ParseOptions{ sourcePositions = False } bs
+     in bench ("renderHtml " <> fn) $
+           nf (BL.toStrict . toLazyByteString .
+               renderHtml RenderOptions{preserveSoftBreaks = True}) doc)
+     files
+   ++
+   map (\(fn, bs) ->
+     let doc = either error id $ parseDoc ParseOptions{ sourcePositions = False } bs
+     in bench ("renderDjot " <> fn) $
+          nf (render (Just 72) .
+          renderDjot RenderOptions{preserveSoftBreaks = True}) doc)
      files

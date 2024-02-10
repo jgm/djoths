@@ -822,9 +822,10 @@ emptyContainer =
             , containerText = mempty
             , containerInlines = mempty
             , containerStartLine = 1
-            , containerEndLine = 0
+            , containerEndLine = 1
             , containerData = NoData
             , containerAttr = mempty
+            , containerSourcePos = False
             }
 
 data Container =
@@ -837,6 +838,7 @@ data Container =
   , containerEndLine   :: Int
   , containerData :: ContainerData
   , containerAttr :: Attr
+  , containerSourcePos :: Bool
   }
 
 data ContainerData =
@@ -965,7 +967,7 @@ finalizeDocument :: P Blocks
 finalizeDocument = do
   cs <- psContainerStack <$> getState
   case cs of
-    c :| [] -> pure $ finalize c
+    _ :| [] -> closeCurrentContainer >> finalize <$> getTip
     _ -> closeCurrentContainer >> finalizeDocument
 
 {-# INLINE closeCurrentContainer #-}
@@ -974,7 +976,7 @@ closeCurrentContainer :: P ()
 closeCurrentContainer = do
   cs <- psContainerStack <$> getState
   cs' <- case cs of
-           _ :| [] -> error "Attempted to close root document container"
+           _ :| [] -> pure cs
            c :| rest -> do
              case containerAttr c of
                Attr as | Just ident <- lookup "id" as
@@ -988,7 +990,9 @@ closeCurrentContainer = do
         \st -> st{ psContainerStack =
                    d{ containerChildren = containerChildren d Seq.|>
                         c{ containerEndLine = curline - 1 } } :| rest }
-    _ :| [] -> error "Attempted to close root document container"
+    c :| [] -> updateState $
+        \st -> st{ psContainerStack =
+                   c{ containerEndLine = curline - 1} :| [] }
 
 {-# INLINE modifyContainers #-}
 modifyContainers :: (NonEmpty Container -> NonEmpty Container) -> P ()
@@ -1000,10 +1004,12 @@ addContainer :: BlockSpec -> ContainerData -> P ()
 addContainer bspec bdata = do
   curline <- sourceLine
   attr <- psAttributes <$> getState
+  opts <- psParseOptions <$> getState
   let newcontainer = emptyContainer { containerSpec = bspec
                                     , containerStartLine = curline
                                     , containerData = bdata
-                                    , containerAttr = attr }
+                                    , containerAttr = attr
+                                    , containerSourcePos = sourcePositions opts }
   unless (blockName bspec == "Attributes") $
     updateState $ \st -> st{ psAttributes = mempty }
   closeInappropriateContainers bspec
@@ -1022,7 +1028,13 @@ closeInappropriateContainers spec = do
 
 finalize :: Container -> Blocks
 finalize cont =
-  addAttr (containerAttr cont) $ blockFinalize (containerSpec cont) cont
+  addAttr (if containerSourcePos cont
+              then Attr [("data-sourcepos", B8.pack $
+                           show (containerStartLine cont) <> "-" <>
+                           show (containerEndLine cont))] <>
+                     containerAttr cont
+              else containerAttr cont)
+     $ blockFinalize (containerSpec cont) cont
 
 finalizeChildren :: Container -> Blocks
 finalizeChildren = foldMap finalize . containerChildren

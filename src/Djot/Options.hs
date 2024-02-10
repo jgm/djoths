@@ -6,10 +6,12 @@ where
 
 data ParseOptions =
   ParseOptions
---  { sourcePositions :: Bool }
+  { sourcePositions :: Bool -- ^ Add attributes for source lines
+  }
   deriving (Show)
 
 data RenderOptions =
   RenderOptions
-  { preserveSoftBreaks :: Bool }
+  { preserveSoftBreaks :: Bool -- ^ Preserve soft breaks as in the source
+  }
   deriving (Show)

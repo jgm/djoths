@@ -23,10 +23,12 @@ data Opts =
       Opts{ format :: OutputFormat
           , files :: [FilePath]
           , wrap :: WrapOption
-          , columns :: Int }
+          , columns :: Int
+          , sourcePos :: Bool }
 
 parseOpts :: [String] -> IO Opts
-parseOpts = go Opts{ format = Html, files = [], wrap = Preserve, columns = 72 }
+parseOpts = go Opts{ format = Html, files = [], wrap = Preserve, columns = 72,
+                     sourcePos = False }
  where
    go opts [] = pure opts
    go opts ("--wrap" : as) =
@@ -46,11 +48,14 @@ parseOpts = go Opts{ format = Html, files = [], wrap = Preserve, columns = 72 }
        "html" : as' -> go opts{ format = Html } as'
        "ast" : as' -> go opts{ format = Ast } as'
        _ -> err "--to must be followed by djot, html, or ast"
+   go opts ("--sourcepos" : as) =
+     go opts{ sourcePos = True } as
    go _opts ("--help" : _) = do
      putStrLn "djoths [options] [files]"
      putStrLn "  --to djot|html|ast"
      putStrLn "  --wrap auto|preserve|none"
      putStrLn "  --columns NUMBER"
+     putStrLn "  --sourcepos"
      putStrLn "  --help"
      exitSuccess
    go opts (xs@('-':_) : as) =
@@ -70,7 +75,7 @@ main = do
   bs <- case files opts of
           [] -> B.getContents
           fs  -> mconcat <$> mapM B.readFile fs
-  let popts = ParseOptions
+  let popts = ParseOptions { sourcePositions = sourcePos opts }
   let ropts = RenderOptions { preserveSoftBreaks = wrap opts == Preserve }
   case parseDoc popts bs of
     Right doc -> do

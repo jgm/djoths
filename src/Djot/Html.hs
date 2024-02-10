@@ -330,8 +330,6 @@ singleTag tag attr =
 attrToBuilder :: Attr -> Builder
 attrToBuilder (Attr pairs) = foldMap go pairs
  where
-   go ("_implicit",_) = mempty
-   go ("_autogen",_) = mempty
    go (k,v) = " " <> byteString k <> "=\"" <> escapeHtmlAttribute v <> "\""
 
 inSingleQuotes :: Builder -> Builder
