@@ -1040,7 +1040,7 @@ closeInappropriateContainers spec = do
 finalize :: Container -> Blocks
 finalize cont =
   addAttr (if containerSourcePos cont
-              then Attr [("data-sourcepos", B8.pack $
+              then Attr [("data-pos", B8.pack $
                             printf "%d:%d-%d:%d"
                                 (containerStartLine cont)
                                 (containerStartColumn cont)
