@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -46,8 +47,8 @@ parseDoc opts bs = do
                         , psAttrParserState = Nothing
                         , psIds = mempty
                         , psAutoIds = mempty
-                        } bs of
-    Just (_, doc) -> Right doc
+                        } [Chunk{ chunkLine = 1, chunkColumn = 0, chunkBytes = bs }] of
+    Just doc -> Right doc
     Nothing -> Left "Parse failure."
 
 data BlockType =
@@ -468,12 +469,12 @@ tableSpec =
   }
 
 parseTableRow :: ([Align], [[Cell]])
-              -> ByteString
+              -> Chunk
               -> P ([Align], [[Cell]])
-parseTableRow (aligns, rows) bs =
-  case B8.uncons (B8.strip bs) of
-    Just ('|',rest) -> do
-      res <- pTableCells aligns rest
+parseTableRow (aligns, rows) chunk =
+  case B8.uncons (B8.strip $ chunkBytes chunk) of
+    Just ('|',_) -> do
+      res <- pTableCells aligns chunk
       case res of
         Left aligns' -> pure (aligns',
                                case rows of
@@ -485,19 +486,22 @@ parseTableRow (aligns, rows) bs =
  where
    toHeadCell align' (Cell _ _ ils) = Cell HeadCell align' ils
 
-pTableCells :: [Align] -> ByteString -> P (Either [Align] [Cell])
-pTableCells aligns bs =
-  case parse pTableSeps () bs of
-    Just (_, aligns') -> pure $ Left aligns'
+pTableCells :: [Align] -> Chunk -> P (Either [Align] [Cell])
+pTableCells aligns chunk =
+  case parse pTableSeps () [chunk] of
+    Just aligns' -> pure $ Left aligns'
     Nothing -> do
-      case parseTableCells bs of
+      case parseTableCells chunk of
         Right cs ->
           pure $ Right $
             zipWith (Cell BodyCell) (aligns ++ repeat AlignDefault) cs
         Left _ -> mzero
 
 pTableSeps :: Parser () [Align]
-pTableSeps = many pTableSep <* eof
+pTableSeps = do
+  skipMany spaceOrTab
+  asciiChar '|'
+  many pTableSep <* skipMany ws <* eof
  where
    pTableSep = do
      skipMany spaceOrTab
@@ -515,7 +519,12 @@ pTableSeps = many pTableSep <* eof
 pRawTableRow :: P ()
 pRawTableRow = do
   lookahead $ asciiChar '|'
-  restOfLine >>= void . parseTableRow ([],[]) . B8.strip
+  curline <- sourceLine
+  curcolumn <- sourceColumn
+  bs <- restOfLine
+  void $ parseTableRow ([],[]) Chunk{ chunkLine = curline
+                                    , chunkColumn = curcolumn
+                                    , chunkBytes = bs }
 
 captionSpec :: BlockSpec
 captionSpec =
@@ -634,7 +643,7 @@ codeBlockSpec =
                    CodeBlockData _ l _ -> l
                    _ -> error "Missing CodeBlockData"
       -- drop first line which should be empty
-          bs = fold (Seq.drop 1 $ containerText container)
+          bs = foldMap chunkBytes (Seq.drop 1 $ containerText container)
       in  case B8.uncons lang of
             Just ('=', fmt) -> rawBlock (Format fmt) bs
             _ -> codeBlock lang bs
@@ -700,7 +709,7 @@ attrSpec =
          then pure False
          else do
            let lastLine = case Seq.viewr (containerText container) of
-                             _ Seq.:> ll -> ll
+                             _ Seq.:> ll -> chunkBytes ll
                              _ -> mempty
            case parseAttributes mbapstate lastLine of
              Done _ -> pure False
@@ -711,7 +720,7 @@ attrSpec =
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = \container -> do
-      let bs = fold $ containerText container
+      let bs = foldMap chunkBytes $ containerText container
       case parseAttributes Nothing bs of
         Done (attr, off)
           | B8.all isWs (B8.drop off bs) -> do
@@ -752,7 +761,7 @@ referenceDefinitionSpec =
                     ReferenceData l -> l
                     _ -> error "Missing ReferenceData"
       let attr = containerAttr container
-      let dest = B.filter (> 32) . fold $ containerText container
+      let dest = B.filter (> 32) . foldMap chunkBytes $ containerText container
       updateState $ \st ->
         st{ psReferenceMap = insertReference label (dest, attr)
                                  (psReferenceMap st) }
@@ -835,7 +844,7 @@ data Container =
   Container
   { containerSpec      :: BlockSpec
   , containerChildren  :: Seq Container
-  , containerText :: Seq ByteString
+  , containerText :: Seq Chunk
   , containerInlines :: Inlines
   , containerStartLine :: Int
   , containerStartColumn :: Int
@@ -931,13 +940,18 @@ processLines = do
       skipMany spaceOrTab
       blockStart paraSpec
 
-  restline <- restOfLine
+  !curline <- sourceLine
+  !curcolumn <- sourceColumn
+  !restline <- restOfLine
 
   -- if current container is a line container, add remainder of line
   modifyContainers $
     \(c :| rest) ->
        if blockContainsLines (containerSpec c)
-          then c{ containerText = containerText c Seq.|> restline } :| rest
+          then c{ containerText = containerText c Seq.|>
+                    Chunk{ chunkLine = curline
+                         , chunkColumn = curcolumn
+                         , chunkBytes = restline } } :| rest
           else c :| rest
 
   eof <|> processLines

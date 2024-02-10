@@ -27,7 +27,7 @@ import Data.Maybe (fromMaybe)
 -- TODO:
 -- [ ] withSourcePos combinator on pInline
 
---
+-- import Debug.Trace
 
 {-# INLINE isSpecial #-}
 isSpecial :: Char -> Bool
@@ -37,28 +37,24 @@ isSpecial c = c == '[' || c == ']' || c == '<' || c == '>' ||
               c == '*' || c == '_' || c == '\''|| c == '"' || c == '.' ||
               c == '|' || c == '`' || c == '\\'|| c == '\n' || c == '\r'
 
-parseInlines :: Seq ByteString -> Either String Inlines
-parseInlines lns = do
-  let inp = B8.dropWhileEnd isWs $ fold lns
-  case parse pInlines ParserState{ mode = NormalMode
-                                 , activeDelims = mempty } inp of
-    Just (off, ils)
-      | off >= B8.length inp -> Right ils
-      | otherwise -> Left $ "parseInlines failed to consume input: " <>
-                              show (B8.drop off inp)
-    Nothing -> Left $ "parseInlines failed on input: " <> show inp
+parseInlines :: Seq Chunk -> Either String Inlines
+parseInlines chunks = do
+  case parse (pInlines <* eof) ParserState{ mode = NormalMode
+                                          , activeDelims = mempty }
+       (toList (stripEndChunks chunks)) of
+    Just ils -> Right ils
+    Nothing -> Left $ "parseInlines failed on input: "
+                     <> show (foldMap chunkBytes chunks)
 
-parseTableCells :: ByteString -> Either String [Inlines]
-parseTableCells inp' = do
-  let inp = B8.dropWhileEnd isWs inp'
-  case parse (many (removeFinalWs <$> pInlines <* asciiChar '|'))
-        ParserState{ mode = TableCellMode
-                   , activeDelims = mempty } inp of
-    Just (off, cells)
-      | off >= B8.length inp -> Right cells
-      | otherwise -> Left $ "parseTableCells failed to consume input: " <>
-                              show (B8.drop off inp)
-    Nothing -> Left $ "parseTableCells failed on input: " <> show inp
+parseTableCells :: Chunk -> Either String [Inlines]
+parseTableCells chunk = do
+  case parse (asciiChar '|'
+                 *> some (removeFinalWs <$> pInlines <* asciiChar '|')
+                 <* skipMany ws
+                 <* eof)
+        ParserState{ mode = TableCellMode , activeDelims = mempty } [chunk] of
+    Just cells -> Right cells
+    Nothing -> Left $ "parseTableCells failed on input: " <> show chunk
 
 removeFinalWs :: Inlines -> Inlines
 removeFinalWs (Many ils) = Many $
@@ -515,3 +511,10 @@ pHyphens = do
 
 pEllipses :: P Inlines
 pEllipses = str "\226\128\166" {- utf8 0x2026 -} <$ byteString "..."
+
+stripEndChunks :: Seq Chunk -> Seq Chunk
+stripEndChunks cs =
+  case Seq.viewr cs of
+    initial Seq.:> c ->
+      initial Seq.|> c{ chunkBytes = B8.dropWhileEnd isWs (chunkBytes c) }
+    _ -> cs

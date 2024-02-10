@@ -2,8 +2,8 @@
 {-# LANGUAGE BinaryLiterals #-}
 module Djot.Parse
 (   Parser
+  , Chunk(..)
   , parse
-  , skipBytes
   , asciiChar
   , satisfyByte
   , skipSatisfyByte
@@ -24,7 +24,6 @@ module Djot.Parse
   , notFollowedBy
   , optional_
   , byteString
-  , takeRest
   , getOffset
   , sourceLine
   , sourceColumn
@@ -46,7 +45,6 @@ import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Control.Applicative
 import Control.Monad (void, MonadPlus(..))
-import Data.Bifunctor (first)
 import Data.Char (chr)
 import Data.Bits
 import Data.Maybe (fromMaybe)
@@ -92,9 +90,17 @@ instance MonadPlus (Parser s) where
   mzero = empty
   mplus = (<|>)
 
+data Chunk =
+  Chunk{ chunkLine :: Int
+       , chunkColumn :: Int
+       , chunkBytes :: ByteString }
+  deriving (Show, Eq, Ord)
+
+
 data ParserState a =
   ParserState
-  { subject :: !ByteString
+  { chunks :: [Chunk]
+  , subject :: !ByteString
   , offset :: !Int
   , line :: !Int
   , column :: !Int
@@ -103,16 +109,22 @@ data ParserState a =
   deriving (Show)
 
 -- | Apply a parser to a bytestring with a given user state.
--- Returns @Nothing@ on failure, @Just (byteOffset, result)@
--- on success.
-parse :: Parser s a -> s -> ByteString -> Maybe (Int, a)
-parse parser ustate bs =
-  first offset <$>
-    runParser parser ParserState { subject = bs
+-- Returns @Nothing@ on failure, @Just result@ on success.
+parse :: Parser s a -> s -> [Chunk] -> Maybe a
+parse parser ustate chunks'' =
+  snd <$>
+    runParser parser ParserState { chunks = chunks'
+                                 , subject = bs
                                  , offset = 0
-                                 , line = 1
-                                 , column = 0
+                                 , line = startline
+                                 , column = startcol
                                  , userState = ustate }
+
+ where
+   (chunks', bs, startline, startcol) =
+     case chunks'' of
+       [] -> ([], mempty, 1, 0)
+       (c:cs) -> (cs, chunkBytes c, chunkLine c, chunkColumn c)
 
 -- | Given a number of bytes, advances the offset and updates line/column.
 unsafeAdvance :: Int -> ParserState s -> ParserState s
@@ -121,19 +133,27 @@ unsafeAdvance !n = unsafeAdvance (n - 1) . unsafeAdvanceByte
 
 -- | Advance the offset and line/column for consuming a given byte.
 unsafeAdvanceByte :: ParserState s -> ParserState s
-unsafeAdvanceByte st =
-  case B.index (subject st) (offset st) of
-    10 -> st{ offset = offset st + 1
-            , line = line st + 1
-            , column = 0 }
-    9 -> st{ offset = offset st + 1
-           , column = column st + (4 - (column st `mod` 4)) }
-    !w | w < 0x80 -> st{ offset = offset st + 1
-                       , column = column st + 1 }
-       -- utf8 multibyte: only count byte 1:
-       | w >= 0b11000000 -> st{ offset = offset st + 1
-                              , column = column st + 1 }
-       | otherwise -> st{ offset = offset st + 1 }
+unsafeAdvanceByte st
+  | offset st + 1 >= B.length (subject st)
+  , c:cs <- chunks st
+   = st{ chunks = cs
+       , subject = chunkBytes c
+       , offset = 0
+       , line = chunkLine c
+       , column = chunkColumn c }
+  | otherwise
+     = case B.index (subject st) (offset st) of
+         10 -> st{ offset = offset st + 1
+                 , line = line st + 1
+                 , column = 0 }
+         9 -> st{ offset = offset st + 1
+                , column = column st + (4 - (column st `mod` 4)) }
+         !w | w < 0x80 -> st{ offset = offset st + 1
+                            , column = column st + 1 }
+            -- utf8 multibyte: only count byte 1:
+            | w >= 0b11000000 -> st{ offset = offset st + 1
+                                   , column = column st + 1 }
+            | otherwise -> st{ offset = offset st + 1 }
 
 -- | Returns current byte as Char.
 current :: ParserState s -> Maybe Char
@@ -146,13 +166,6 @@ peek = Parser $ \st -> Just (st, current st)
 -- | Returns previous byte as Char.
 peekBack :: Parser s (Maybe Char)
 peekBack = Parser $ \st -> Just (st, subject st B8.!? (offset st - 1))
-
--- | Skip n bytes.
-skipBytes :: Int -> Parser s ()
-skipBytes !n = Parser $ \st ->
-  if offset st + n <= B8.length (subject st)
-     then Just (unsafeAdvance n st, ())
-     else Nothing
 
 -- | Parse a byte satisfying a predicate.
 satisfyByte :: (Char -> Bool) -> Parser s Char
@@ -283,8 +296,13 @@ withByteString pa = Parser $ \st ->
 byteStringOf :: Parser s a -> Parser s ByteString
 byteStringOf pa = Parser $ \st ->
   case runParser pa st of
-    Just (st', _) -> Just (st', B8.take (offset st' - offset st)
-                                    (B8.drop (offset st) (subject st)))
+    Just (st', _) -> Just (st',
+       case length (chunks st) - length (chunks st') of
+         0 -> B8.take (offset st' - offset st) (B8.drop (offset st) (subject st))
+         n ->
+           B8.drop (offset st) (subject st) <>
+            foldMap chunkBytes (take (n - 1) (chunks st)) <>
+            B8.take (offset st') (subject st'))
     Nothing -> Nothing
 
 -- | Succeeds if first parser succeeds and second fails, returning
@@ -302,12 +320,6 @@ byteString bs = Parser $ \st ->
   if bs `B8.isPrefixOf` B8.drop (offset st) (subject st)
      then Just (unsafeAdvance (B.length bs) st, ())
      else Nothing
-
--- | Returns rest of input and moves to eof.
-takeRest :: Parser s ByteString
-takeRest = Parser $ \st ->
-  Just (unsafeAdvance (B8.length (subject st) - offset st) st,
-         B8.drop (offset st) (subject st))
 
 -- | Returns byte offset in input.
 getOffset :: Parser s Int

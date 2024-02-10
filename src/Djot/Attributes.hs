@@ -37,11 +37,18 @@ import Data.Maybe (fromMaybe)
 --  comment <- '%' [^%}]* '%'
 
 pAttributes :: Parser s Attr
-pAttributes = do
-  bs <- lookahead takeRest
-  case parseAttributes Nothing bs of
-    Done (attr, off) -> attr <$ skipBytes off
-    _ -> failed
+pAttributes = getSlice >>= go Nothing
+ where
+   getSlice = byteStringOf $
+               branch
+                (skipSome (skipSatisfyByte (/= '}')))
+                (optional_ (asciiChar '}'))
+                (asciiChar '}')
+   go mbst bs = do
+     case parseAttributes mbst bs of
+       Done (attr, _off) -> pure attr
+       Partial st -> getSlice >>= go (Just st)
+       Failed _off -> failed
 
 data AttrParseResult =
     Done (Attr, Int) -- result and byte offset
