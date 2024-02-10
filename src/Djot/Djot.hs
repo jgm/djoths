@@ -80,8 +80,8 @@ toReference (label, (url, attr)) = do
 toNotes :: State BState (Layout.Doc Text)
 toNotes = do
   noterefs <- gets noteOrder
-  allLabels <- M.keys . unNoteMap <$> gets noteMap
-  let sortedLabels = sortOn (\label -> M.lookup label noterefs) allLabels
+  allLabels <- gets (M.keys . unNoteMap . noteMap)
+  let sortedLabels = sortOn (`M.lookup` noterefs) allLabels
   (<> cr) . vsep <$> mapM toNote sortedLabels
 
 toNote :: ByteString -> State BState (Layout.Doc Text)
@@ -158,7 +158,7 @@ instance ToLayout Attr where
                        doubleQuotes (literal (escapeDjot Normal v))
 
 instance ToLayout (Node Block) where
-  toLayout (Node attr bl) =
+  toLayout (Node _pos attr bl) =
     ($$) <$> (case bl of
                 -- don't print an id that was generated implicitly
                 Heading{} -> do
@@ -345,7 +345,7 @@ toRomanNumeral x
 
 
 instance ToLayout (Node Inline) where
-  toLayout (Node attr il) = (<>)
+  toLayout (Node _pos attr il) = (<>)
     <$> case il of
           Str bs -> do
             let fixSmart = T.replace "\x2014" "---" .
@@ -450,7 +450,7 @@ surround :: Char -> Inlines -> State BState (Layout.Doc Text)
 surround c ils = do
   let startBeforeSpace =
         case Seq.viewl (unMany ils) of
-                Node _ (Str bs) Seq.:< _ ->
+                Node _pos _ (Str bs) Seq.:< _ ->
                     isWhite (B8.take 1 bs)
                 _ -> False
   modify' $ \st -> st{ nestings = IntMap.adjust (+ 1) (ord c) (nestings st)}
@@ -473,6 +473,6 @@ computeDivNestingLevel :: Blocks -> Int
 computeDivNestingLevel =
   foldr go 0 . unMany
  where
-   go (Node _ (Div bls')) n =
+   go (Node _pos _ (Div bls')) n =
      max (n + 1) (foldr go (n + 1) (unMany bls'))
    go _ n = n

@@ -59,12 +59,12 @@ addBackref :: ByteString -> Blocks -> Blocks
 addBackref num (Many bls) =
     Many $
       case Seq.viewr bls of
-          rest Seq.:> Node attr (Para ils) ->
-            rest Seq.|> Node attr (Para (ils <> backlink))
-          _ -> bls Seq.|> Node mempty (Para backlink)
+          rest Seq.:> Node pos attr (Para ils) ->
+            rest Seq.|> Node pos attr (Para (ils <> backlink))
+          _ -> bls Seq.|> Node Pos mempty (Para backlink)
  where
    backlink = Many $ Seq.singleton $
-               Node (Attr [("role", "doc-backlink")])
+               Node Pos (Attr [("role", "doc-backlink")])
                  (Link (str (strToUtf8 "\8617\65038"))
                  (Direct ("#fnref" <> num)))
 
@@ -115,7 +115,7 @@ instance ToBuilder Blocks where
   toBuilder = fmap F.fold . mapM toBuilder . unMany
 
 instance ToBuilder (Node Block) where
-  toBuilder (Node attr bl) =
+  toBuilder (Node pos attr bl) =
     let addNl = (<> "\n") in
     case bl of
       Para ils -> addNl . inTags "p" attr <$> toBuilder ils
@@ -176,7 +176,7 @@ instance ToBuilder (Node Block) where
                    Just (Caption bs) ->
                      addNl . inTags "caption" mempty
                        <$> case F.toList (unMany bs) of
-                              [Node at (Para ils)] | at == mempty
+                              [Node pos at (Para ils)] | at == mempty
                                  -> toBuilder ils
                               _ -> ("\n" <>) <$> toBuilder bs
         pure $ addNl . inTags "table" attr . ("\n" <>) $ capt <> mconcat rows'
@@ -203,22 +203,22 @@ toCell (Cell cellType align ils) =
 toItemContents :: ListSpacing -> Blocks -> State BState Builder
 toItemContents listSpacing = fmap F.fold . mapM go . unMany
  where
-   go (Node attr bl) =
+   go (Node pos attr bl) =
     case bl of
       Para ils
         | listSpacing == Tight ->
             if attr == mempty
                then (<> "\n") <$> toBuilder ils
                else (<> "\n") . inTags "span" attr <$> toBuilder ils
-        | otherwise -> toBuilder (Node attr bl)
-      _ -> toBuilder (Node attr bl)
+        | otherwise -> toBuilder (Node pos attr bl)
+      _ -> toBuilder (Node pos attr bl)
 
 toTaskListItem :: ListSpacing -> (TaskStatus, Blocks) -> State BState Builder
 toTaskListItem listSpacing (status, bs) = do
   body <- case Seq.viewl $ unMany bs of
-            Node attr (Para ils) Seq.:< rest ->
+            Node pos attr (Para ils) Seq.:< rest ->
               toItemContents listSpacing (Many
-                (Node attr
+                (Node pos attr
                  (Para (rawInline (Format "html") ("<label>" <> input) <>
                          ils <>
                          rawInline (Format "html") "</label>")) Seq.<| rest))
@@ -237,7 +237,7 @@ toDefinition listSpacing (term, defn) = (<>) <$>
   ((<> "\n") . inTags "dd" mempty . ("\n" <>) <$> toItemContents listSpacing defn)
 
 instance ToBuilder (Node Inline) where
-  toBuilder (Node attr il) =
+  toBuilder (Node pos attr il) =
     case il of
       Str bs -> case attr of
                    Attr [] -> pure $ escapeHtml bs
@@ -287,8 +287,8 @@ instance ToBuilder (Node Inline) where
         pure $ singleTag "img"
                  (Attr [("alt", inlinesToByteString ils)] <> attr' <> attr)
       EmailLink email ->
-        toBuilder (Node attr (Link (str email) (Direct ("mailto:" <> email))))
-      UrlLink url -> toBuilder (Node attr (Link (str url) (Direct url)))
+        toBuilder (Node pos attr (Link (str email) (Direct ("mailto:" <> email))))
+      UrlLink url -> toBuilder (Node pos attr (Link (str url) (Direct url)))
       RawInline (Format "html") bs -> pure $ byteString bs
       RawInline _ _ -> pure mempty
       FootnoteReference label -> do

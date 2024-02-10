@@ -350,7 +350,7 @@ hasChildrenSeparatedWithBlank cont =
 toDefinition :: Blocks -> (Inlines, Blocks)
 toDefinition bs =
   case Seq.viewl bs' of
-    Node _ (Para ils) Seq.:< _ -> (ils, Many (Seq.drop 1 bs'))
+    Node _ _ (Para ils) Seq.:< _ -> (ils, Many (Seq.drop 1 bs'))
     _ -> (mempty, bs)
   where
    bs' = unMany bs

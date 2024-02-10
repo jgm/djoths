@@ -12,6 +12,7 @@ module Djot.AST
   MathStyle(..),
   Format(..),
   Node(Node),
+  Pos(..),
   addAttr,
   Block(..),
   Blocks,
@@ -107,13 +108,16 @@ integrate (k,v) kvs =
         (k, v <> " " <> v') : filter (\(k',_) -> k' /= "class") kvs
       | otherwise -> kvs
 
-data Node a = Node Attr a
+data Pos = Pos
+  deriving (Show, Eq, Ord, Typeable, Generic)
+
+data Node a = Node Pos Attr a
   deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
 
 {-# INLINE addAttr #-}
 addAttr :: Functor f => Attr -> f (Node a) -> f (Node a)
 addAttr attr nodes =
-  (\(Node attr' bs) -> Node (attr' <> attr) bs) <$> nodes
+  (\(Node pos attr' bs) -> Node pos (attr' <> attr) bs) <$> nodes
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
@@ -162,12 +166,12 @@ type Inlines = Many (Node Inline)
 instance Semigroup Inlines where
   Many as <> Many bs =
     case (Seq.viewr as, Seq.viewl bs) of
-      (as' Seq.:> Node attr (Str s), Node attr' (Str t) Seq.:< bs')
+      (as' Seq.:> Node pos attr (Str s), Node pos' attr' (Str t) Seq.:< bs')
         | attr == attr'
-          -> Many (as' <> (Node attr (Str (s <> t)) Seq.<| bs'))
-      (as' Seq.:> Node attr (Str s), Node _ HardBreak Seq.:< _)
+          -> Many (as' <> (Node pos attr (Str (s <> t)) Seq.<| bs')) -- TODO compute pos
+      (as' Seq.:> Node pos attr (Str s), Node _ _ HardBreak Seq.:< _)
         | B8.all isSpaceOrTab (B8.takeEnd 1 s)
-          -> Many (as' <> (Node attr (Str (B8.dropWhileEnd isSpaceOrTab s))
+          -> Many (as' <> (Node pos attr (Str (B8.dropWhileEnd isSpaceOrTab s))
                             Seq.<| bs))
       _ -> Many (as <> bs)
     where
@@ -283,7 +287,7 @@ lookupReference label (ReferenceMap rm) =
 
 {-# INLINE inline #-}
 inline :: Inline -> Inlines
-inline = Many . Seq.singleton . Node mempty
+inline = Many . Seq.singleton . Node Pos mempty
 
 str, verbatim, symbol :: ByteString -> Inlines
 str = inline . Str
@@ -335,7 +339,7 @@ rawInline f = inline . RawInline f
 --
 
 block :: Block -> Blocks
-block = Many . Seq.singleton . Node mempty
+block = Many . Seq.singleton . Node Pos mempty
 
 para :: Inlines -> Blocks
 para = block . Para
@@ -379,7 +383,7 @@ rawBlock f = block . RawBlock f
 inlinesToByteString :: Inlines -> ByteString
 inlinesToByteString = foldMap go . unMany
  where
-  go (Node _attr x) =
+  go (Node _pos _attr x) =
       case x of
         Str bs -> bs
         Emph ils -> inlinesToByteString ils

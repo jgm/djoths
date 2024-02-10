@@ -62,11 +62,11 @@ parseTableCells opts chunk = do
 removeFinalWs :: Inlines -> Inlines
 removeFinalWs (Many ils) = Many $
   case Seq.viewr ils of
-    rest Seq.:> Node attr (Str bs)
+    rest Seq.:> Node pos attr (Str bs)
       | B8.takeEnd 1 bs == " "
         -> case B8.dropWhileEnd (== ' ') bs of
              "" -> rest
-             bs' -> rest Seq.|> Node attr (Str bs')
+             bs' -> rest Seq.|> Node pos attr (Str bs')
     _ -> ils
 
 data InlineParseMode =
@@ -95,15 +95,15 @@ pInlines = skipMany ws *> (consolidate . mconcat <$> many pInline)
 consolidate :: Inlines -> Inlines
 consolidate (Many ils') = Many (foldl' go mempty ils')
  where
-   go ils il@(Node attr (Str s)) =
+   go ils il@(Node pos attr (Str s)) =
      case Seq.viewr ils of
-              start Seq.:> Node (Attr []) (Str s')
+              start Seq.:> Node pos' (Attr []) (Str s')
                 | (sa, sb) <- B8.spanEnd (not . isWs) s'
                 , not (B8.null sb)
                 -> if B8.null sa
-                      then start Seq.|> Node attr (Str (sb <> s))
-                      else start Seq.|> Node (Attr []) (Str sa)
-                                 Seq.|> Node attr (Str (sb <> s))
+                      then start Seq.|> Node pos attr (Str (sb <> s))
+                      else start Seq.|> Node pos' (Attr []) (Str sa) -- TODO compute pos'
+                                 Seq.|> Node pos' attr (Str (sb <> s))
               _ -> ils Seq.|> il
    go ils il = ils Seq.|> il
 
@@ -133,16 +133,16 @@ pAddAttributes (Many ils) = do
       Attr [] -> Many ils
       _ -> case Seq.viewr ils of
              Seq.EmptyR -> mempty
-             ils' Seq.:> Node attr' (Str bs) ->
+             ils' Seq.:> Node pos attr' (Str bs) ->
                -- attach attribute to last word
                let (front, lastword) = B8.breakEnd isWs bs
                in if B.null lastword
                      then Many ils
                      else Many (ils' Seq.|>
-                                     Node attr' (Str front) Seq.|>
-                                     Node attr (Str lastword))
-             ils' Seq.:> Node attr' il ->
-               Many (ils' Seq.|> Node (attr' <> attr) il)
+                                     Node pos attr' (Str front) Seq.|>
+                                     Node pos attr (Str lastword))
+             ils' Seq.:> Node pos attr' il ->
+               Many (ils' Seq.|> Node pos (attr' <> attr) il)
 
 pInline' :: P Inlines
 pInline' = do
@@ -237,8 +237,8 @@ pMath = do
   mathStyle <- (DisplayMath <$ asciiChar '$') <|> pure InlineMath
   verb <- pVerbatim
   case unMany verb of
-         [Node attr (Verbatim bs)] ->
-              pure $ Many $ Seq.singleton $ Node attr (Math mathStyle bs)
+         [Node pos attr (Verbatim bs)] ->
+              pure $ Many $ Seq.singleton $ Node pos attr (Math mathStyle bs)
          _ -> pure $ (case mathStyle of
                         DisplayMath -> str "$$"
                         _ -> str "$") <> verb
