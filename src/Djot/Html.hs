@@ -61,10 +61,10 @@ addBackref num (Many bls) =
       case Seq.viewr bls of
           rest Seq.:> Node pos attr (Para ils) ->
             rest Seq.|> Node pos attr (Para (ils <> backlink))
-          _ -> bls Seq.|> Node Pos mempty (Para backlink)
+          _ -> bls Seq.|> Node noPos mempty (Para backlink)
  where
    backlink = Many $ Seq.singleton $
-               Node Pos (Attr [("role", "doc-backlink")])
+               Node noPos (Attr [("role", "doc-backlink")])
                  (Link (str (strToUtf8 "\8617\65038"))
                  (Direct ("#fnref" <> num)))
 
