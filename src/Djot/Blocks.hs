@@ -30,6 +30,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
 import Data.Typeable (Typeable)
+import Text.Printf (printf)
 -- import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
@@ -342,7 +343,7 @@ hasChildrenSeparatedWithBlank cont =
    children = (if Definition `elem` liTypes then Seq.drop 1 else id) $
                   containerChildren cont
    check x y = (blockName (containerSpec y) /= "List") &&
-               (containerStartLine y > containerEndLine x + 1)
+               (containerStartLine y > containerEndLine x)
    liTypes = getListTypes cont
 
 toDefinition :: Blocks -> (Inlines, Blocks)
@@ -822,7 +823,9 @@ emptyContainer =
             , containerText = mempty
             , containerInlines = mempty
             , containerStartLine = 1
+            , containerStartColumn = 0
             , containerEndLine = 1
+            , containerEndColumn = 0
             , containerData = NoData
             , containerAttr = mempty
             , containerSourcePos = False
@@ -835,7 +838,9 @@ data Container =
   , containerText :: Seq ByteString
   , containerInlines :: Inlines
   , containerStartLine :: Int
-  , containerEndLine   :: Int
+  , containerStartColumn :: Int
+  , containerEndLine :: Int
+  , containerEndColumn :: Int
   , containerData :: ContainerData
   , containerAttr :: Attr
   , containerSourcePos :: Bool
@@ -989,10 +994,12 @@ closeCurrentContainer = do
     c :| (d:rest) -> updateState $
         \st -> st{ psContainerStack =
                    d{ containerChildren = containerChildren d Seq.|>
-                        c{ containerEndLine = curline - 1 } } :| rest }
+                        c{ containerEndLine = curline
+                         , containerEndColumn = 0 } } :| rest }
     c :| [] -> updateState $
         \st -> st{ psContainerStack =
-                   c{ containerEndLine = curline - 1} :| [] }
+                   c{ containerEndLine = curline
+                    , containerEndColumn = 0 } :| [] }
 
 {-# INLINE modifyContainers #-}
 modifyContainers :: (NonEmpty Container -> NonEmpty Container) -> P ()
@@ -1003,10 +1010,14 @@ modifyContainers f =
 addContainer :: BlockSpec -> ContainerData -> P ()
 addContainer bspec bdata = do
   curline <- sourceLine
+  curcol <- sourceColumn
   attr <- psAttributes <$> getState
   opts <- psParseOptions <$> getState
   let newcontainer = emptyContainer { containerSpec = bspec
                                     , containerStartLine = curline
+                                    , containerStartColumn = curcol
+                                    , containerEndLine = curline
+                                    , containerEndColumn = curcol
                                     , containerData = bdata
                                     , containerAttr = attr
                                     , containerSourcePos = sourcePositions opts }
@@ -1030,8 +1041,11 @@ finalize :: Container -> Blocks
 finalize cont =
   addAttr (if containerSourcePos cont
               then Attr [("data-sourcepos", B8.pack $
-                           show (containerStartLine cont) <> "-" <>
-                           show (containerEndLine cont))] <>
+                            printf "%d:%d-%d:%d"
+                                (containerStartLine cont)
+                                (containerStartColumn cont)
+                                (containerEndLine cont)
+                                (containerEndColumn cont))] <>
                      containerAttr cont
               else containerAttr cont)
      $ blockFinalize (containerSpec cont) cont
