@@ -491,7 +491,8 @@ pTableCells aligns chunk =
   case parse pTableSeps () [chunk] of
     Just aligns' -> pure $ Left aligns'
     Nothing -> do
-      case parseTableCells chunk of
+      opts <- psParseOptions <$> getState
+      case parseTableCells opts chunk of
         Right cs ->
           pure $ Right $
             zipWith (Cell BodyCell) (aligns ++ repeat AlignDefault) cs
@@ -823,7 +824,9 @@ paraSpec =
   }
 
 parseTextLines :: Container -> P Inlines
-parseTextLines = either error pure . parseInlines . containerText
+parseTextLines cont = do
+  opts <- psParseOptions <$> getState
+  either error pure . parseInlines opts $ containerText cont
 
 emptyContainer :: Container
 emptyContainer =

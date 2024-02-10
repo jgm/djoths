@@ -15,8 +15,10 @@ import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Djot.Parse
+import Djot.Options (ParseOptions(..))
 import Djot.Attributes (pAttributes)
 import Djot.AST
+import Text.Printf (printf)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
@@ -37,22 +39,26 @@ isSpecial c = c == '[' || c == ']' || c == '<' || c == '>' ||
               c == '*' || c == '_' || c == '\''|| c == '"' || c == '.' ||
               c == '|' || c == '`' || c == '\\'|| c == '\n' || c == '\r'
 
-parseInlines :: Seq Chunk -> Either String Inlines
-parseInlines chunks = do
+parseInlines :: ParseOptions -> Seq Chunk -> Either String Inlines
+parseInlines opts chunks = do
   case parse (pInlines <* eof) ParserState{ mode = NormalMode
-                                          , activeDelims = mempty }
+                                          , activeDelims = mempty
+                                          , options = opts }
        (toList (stripEndChunks chunks)) of
     Just ils -> Right ils
     Nothing -> Left $ "parseInlines failed on input: "
                      <> show (foldMap chunkBytes chunks)
 
-parseTableCells :: Chunk -> Either String [Inlines]
-parseTableCells chunk = do
+parseTableCells :: ParseOptions -> Chunk -> Either String [Inlines]
+parseTableCells opts chunk = do
   case parse (asciiChar '|'
                  *> some (removeFinalWs <$> pInlines <* asciiChar '|')
                  <* skipMany ws
                  <* eof)
-        ParserState{ mode = TableCellMode , activeDelims = mempty } [chunk] of
+        ParserState{ mode = TableCellMode
+                   , activeDelims = mempty
+                   , options = opts }
+       [chunk] of
     Just cells -> Right cells
     Nothing -> Left $ "parseTableCells failed on input: " <> show chunk
 
@@ -73,8 +79,9 @@ data InlineParseMode =
 data ParserState =
   ParserState
   { mode :: InlineParseMode
-  , activeDelims :: Set Delim }
-  deriving (Show, Ord, Eq)
+  , activeDelims :: Set Delim
+  , options :: ParseOptions }
+  deriving (Show)
 
 data Delim = Delim Bool Char
   deriving (Show, Ord, Eq)
@@ -104,7 +111,19 @@ consolidate (Many ils') = Many (foldl' go mempty ils')
    go ils il = ils Seq.|> il
 
 pInline :: P Inlines
-pInline = pInline' >>= pOptionalAttributes
+pInline = do
+  sline <- sourceLine
+  scol <- sourceColumn
+  res <- pInline' >>= pOptionalAttributes
+  eline <- sourceLine
+  ecol <- sourceColumn
+  opts <- options <$> getState
+  if sourcePositions opts
+     then pure $
+       addAttr (Attr [("data-pos", B8.pack $
+                          printf "%d:%d-%d:%d" sline scol eline ecol)])
+               res
+     else pure res
 
 pOptionalAttributes :: Inlines -> P Inlines
 pOptionalAttributes (Many ils) = pAddAttributes (Many ils) <|> pure (Many ils)
