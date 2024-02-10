@@ -26,9 +26,6 @@ import Data.Foldable as F
 import Control.Applicative
 import Data.Maybe (fromMaybe)
 
--- TODO:
--- [ ] withSourcePos combinator on pInline
-
 -- import Debug.Trace
 
 {-# INLINE isSpecial #-}
