@@ -119,7 +119,7 @@ pInline = do
      AllSourcePos -> pure $
        addAttr (Attr [("data-pos", B8.pack $
                           printf "%d:%d-%d:%d" sline scol eline ecol)])
-               res
+               <$> res
      _ -> pure res
 
 pOptionalAttributes :: Inlines -> P Inlines

@@ -410,7 +410,7 @@ sectionSpec =
                     SectionData _ ident -> ident
                     _ -> error "Missing SectionData"
       in  maybe id (\ident -> addAttr (Attr [("id", ident)])) secid
-           $ section blocks
+           <$> section blocks
   }
 
 blockQuoteSpec :: BlockSpec
@@ -687,7 +687,7 @@ divSpec =
           bls = finalizeChildren container
       in  (if B.null label
               then id
-              else addAttr (Attr [("class", label)])) $ div bls
+              else addAttr (Attr [("class", label)])) <$> div bls
   }
 
 attrSpec :: BlockSpec
@@ -1065,7 +1065,7 @@ finalize cont =
                                 (containerEndColumn cont))] <>
                      containerAttr cont
               else containerAttr cont)
-     $ blockFinalize (containerSpec cont) cont
+     <$> blockFinalize (containerSpec cont) cont
 
 finalizeChildren :: Container -> Blocks
 finalizeChildren = foldMap finalize . containerChildren

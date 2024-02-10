@@ -15,6 +15,7 @@ module Djot.AST
   Pos(..),
   noPos,
   addAttr,
+  addPos,
   Block(..),
   Blocks,
   Doc(..),
@@ -119,9 +120,12 @@ data Node a = Node Pos Attr a
   deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
 
 {-# INLINE addAttr #-}
-addAttr :: Functor f => Attr -> f (Node a) -> f (Node a)
-addAttr attr nodes =
-  (\(Node pos attr' bs) -> Node pos (attr' <> attr) bs) <$> nodes
+addAttr :: Attr -> Node a -> Node a
+addAttr attr (Node pos attr' bs) = Node pos (attr' <> attr) bs
+
+{-# INLINE addPos #-}
+addPos :: Pos -> Node a -> Node a
+addPos pos (Node _ attr bs) = Node pos attr bs
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
