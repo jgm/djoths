@@ -37,7 +37,7 @@ import Data.Maybe (fromMaybe)
 --  comment <- '%' [^%}]* '%'
 
 pAttributes :: Parser s Attr
-pAttributes = getSlice >>= go Nothing
+pAttributes = lookahead (asciiChar '{') >> getSlice >>= go Nothing
  where
    getSlice = byteStringOf $
                branch

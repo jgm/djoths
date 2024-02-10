@@ -127,22 +127,22 @@ pOptionalAttributes (Many ils) = pAddAttributes (Many ils) <|> pure (Many ils)
 
 pAddAttributes :: Inlines -> P Inlines
 pAddAttributes (Many ils) = do
-  lookahead $ asciiChar '{'
   attr <- mconcat <$> some pAttributes
-  case attr of
-    Attr [] -> pure (Many ils)
-    _ -> case Seq.viewr ils of
-           Seq.EmptyR -> pure mempty
-           ils' Seq.:> Node attr' (Str bs) ->
-             -- attach attribute to last word
-             let (front, lastword) = B8.breakEnd isWs bs
-             in if B.null lastword
-                   then pure (Many ils)
-                   else pure $ Many (ils' Seq.|>
-                                   Node attr' (Str front) Seq.|>
-                                   Node attr (Str lastword))
-           ils' Seq.:> Node attr' il ->
-             pure $ Many (ils' Seq.|> Node (attr' <> attr) il)
+  pure $
+    case attr of
+      Attr [] -> Many ils
+      _ -> case Seq.viewr ils of
+             Seq.EmptyR -> mempty
+             ils' Seq.:> Node attr' (Str bs) ->
+               -- attach attribute to last word
+               let (front, lastword) = B8.breakEnd isWs bs
+               in if B.null lastword
+                     then Many ils
+                     else Many (ils' Seq.|>
+                                     Node attr' (Str front) Seq.|>
+                                     Node attr (Str lastword))
+             ils' Seq.:> Node attr' il ->
+               Many (ils' Seq.|> Node (attr' <> attr) il)
 
 pInline' :: P Inlines
 pInline' = do
