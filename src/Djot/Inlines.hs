@@ -279,7 +279,8 @@ pBetween c constructor = do
            else guard (not afterws) `notFollowedBy` asciiChar '}'
   leftBrace <- (True <$ asciiChar '{') <|> pure False
   starterBs <- (if leftBrace then ("{" <>) else id) <$>
-                 byteStringOf (starter leftBrace)
+                 byteStringOf (starter leftBrace) `notFollowedBy` pAttributes
+                 -- don't let *{.foo} start emphasis, for example
   oldActiveDelims <- activeDelims <$> getState
   updateState $ \st -> st{ activeDelims = Set.insert (Delim leftBrace c)
                                              (activeDelims st) }
