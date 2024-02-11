@@ -100,9 +100,19 @@ consolidate (Many ils') = Many (foldl' go mempty ils')
                 | (sa, sb) <- B8.spanEnd (not . isWs) s'
                 , not (B8.null sb)
                 -> if B8.null sa
-                      then start Seq.|> Node pos attr (Str (sb <> s))
-                      else start Seq.|> Node pos' (Attr []) (Str sa) -- TODO compute pos'
-                                 Seq.|> Node pos' attr (Str (sb <> s))
+                      then start Seq.|> Node (pos <> pos') attr (Str (sb <> s))
+                      else
+                        let lena = length (utf8ToStr sa)
+                            lenb = length (utf8ToStr sb)
+                            pos1 = case pos' of
+                                     NoPos -> NoPos
+                                     Pos sl sc el ec -> Pos sl sc el (ec - lenb)
+                            pos2 = case (pos', pos) of
+                                     (Pos sl' sc' _ _, Pos _ _ el ec)
+                                       -> Pos sl' (sc' + lena) el ec
+                                     _ -> NoPos
+                        in start Seq.|> Node pos1 (Attr []) (Str sa)
+                                 Seq.|> Node pos2 attr (Str (sb <> s))
               _ -> ils Seq.|> il
    go ils il = ils Seq.|> il
 
