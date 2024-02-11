@@ -108,14 +108,15 @@ consolidate (Many ils') = Many (foldl' go mempty ils')
 
 pInline :: P Inlines
 pInline = do
-  sline <- sourceLine
-  scol <- sourceColumn
   res <- pInline' >>= pOptionalAttributes
-  eline <- sourceLine
-  ecol <- sourceColumn
   opts <- options <$> getState
   case sourcePositions opts of
-     AllSourcePos -> pure $ addPos (Pos sline scol eline ecol) <$> res
+     AllSourcePos -> do
+       sline <- sourceLine
+       scol <- sourceColumn
+       eline <- sourceLine
+       ecol <- sourceColumn
+       pure $ addPos (Pos sline scol eline ecol) <$> res
      _ -> pure res
 
 pOptionalAttributes :: Inlines -> P Inlines
