@@ -112,6 +112,16 @@ integrate (k,v) kvs =
 data Pos = NoPos | Pos Int Int Int Int -- start line, start col, end line, end col
   deriving (Show, Eq, Ord, Typeable, Generic)
 
+instance Semigroup Pos where
+  Pos sl1 sc1 _ _ <> Pos _ _ el2 ec2 =
+    Pos sl1 sc1 el2 ec2
+  NoPos <> _ = NoPos
+  _ <> NoPos = NoPos
+
+instance Monoid Pos where
+  mappend = (<>)
+  mempty = NoPos
+
 data Node a = Node Pos Attr a
   deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
 
@@ -172,12 +182,7 @@ instance Semigroup Inlines where
     case (Seq.viewr as, Seq.viewl bs) of
       (as' Seq.:> Node pos1 attr (Str s), Node pos2 attr' (Str t) Seq.:< bs')
         | attr == attr'
-          -> Many (as' <> (Node newpos attr (Str (s <> t)) Seq.<| bs'))
-          where
-            newpos = case (pos1, pos2) of
-                       (Pos sl sc _ _, Pos _ _ el ec) ->
-                         Pos sl sc el ec
-                       _ -> NoPos
+          -> Many (as' <> (Node (pos1 <> pos2) attr (Str (s <> t)) Seq.<| bs'))
       (as' Seq.:> Node pos attr (Str s), Node _ _ HardBreak Seq.:< _)
         | B8.all isSpaceOrTab (B8.takeEnd 1 s)
           -> Many (as' <> (Node pos attr (Str (B8.dropWhileEnd isSpaceOrTab s))
