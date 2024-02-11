@@ -339,7 +339,7 @@ posToBuilder :: Maybe Pos -> Builder
 posToBuilder Nothing = mempty
 posToBuilder (Just (Pos sl sc el ec)) =
   " data-pos=\"" <> intDec sl <> ":" <> intDec sc <> "-" <>
-     intDec el <> ":" <> intDec ec <> "\""
+     (if el /= sl then intDec el <> ":" else "") <> intDec ec <> "\""
 
 inSingleQuotes :: Builder -> Builder
 inSingleQuotes x =
