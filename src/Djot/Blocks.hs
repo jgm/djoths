@@ -408,7 +408,8 @@ sectionSpec =
           secid = case containerData container of
                     SectionData _ ident -> ident
                     _ -> error "Missing SectionData"
-      in  maybe id (\ident -> addAttr (Attr [("id", ident)])) secid
+      in addSourcePos container $
+          maybe id (\ident -> addAttr (Attr [("id", ident)])) secid
            <$> section blocks
   }
 
@@ -431,7 +432,8 @@ blockQuoteSpec =
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
   , blockClose = pure
-  , blockFinalize = blockQuote . finalizeChildren
+  , blockFinalize = \container ->
+      addSourcePos container . blockQuote $ finalizeChildren container
   }
 
 tableSpec :: BlockSpec
@@ -464,7 +466,7 @@ tableSpec =
             case Seq.viewr (containerChildren container) of
               Seq.EmptyR -> Nothing
               _ Seq.:> x -> Just . Caption $ blockFinalize (containerSpec x) x
-      in  table mbCaption rows
+      in  addSourcePos container $ table mbCaption rows
   }
 
 parseTableRow :: ([Align], [[Cell]])
@@ -566,7 +568,7 @@ thematicBreakSpec =
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = pure
-  , blockFinalize = const thematicBreak
+  , blockFinalize = \container -> addSourcePos container thematicBreak
   }
 
 headingSpec :: BlockSpec
@@ -605,7 +607,7 @@ headingSpec =
             case containerData container of
               HeadingData l t -> (l, t)
               _ -> error "Missing HeadingData"
-      in  heading lev title
+      in  addSourcePos container $ heading lev title
   }
 
 codeBlockSpec :: BlockSpec
@@ -644,7 +646,8 @@ codeBlockSpec =
                    _ -> error "Missing CodeBlockData"
       -- drop first line which should be empty
           bs = foldMap chunkBytes (Seq.drop 1 $ containerText container)
-      in  case B8.uncons lang of
+      in  addSourcePos container $
+          case B8.uncons lang of
             Just ('=', fmt) -> rawBlock (Format fmt) bs
             _ -> codeBlock lang bs
   }
@@ -686,7 +689,8 @@ divSpec =
           bls = finalizeChildren container
       in  (if B.null label
               then id
-              else addAttr (Attr [("class", label)])) <$> div bls
+              else addAttr (Attr [("class", label)])) <$>
+          addSourcePos container (div bls)
   }
 
 attrSpec :: BlockSpec
@@ -819,7 +823,7 @@ paraSpec =
   , blockClose = \container -> do
       ils <- parseTextLines container
       pure $ container{ containerInlines = ils }
-  , blockFinalize = para . containerInlines
+  , blockFinalize = \container -> addSourcePos container . para $ containerInlines container
   }
 
 parseTextLines :: Container -> P Inlines
@@ -1055,12 +1059,16 @@ closeInappropriateContainers spec = do
 
 finalize :: Container -> Blocks
 finalize cont =
-  addAttr (containerAttr cont) .
-  (if containerSourcePos cont
-      then addPos (Pos (containerStartLine cont) (containerStartColumn cont)
-                       (containerEndLine cont) (containerEndColumn cont))
-      else id)
+  addAttr (containerAttr cont)
     <$> blockFinalize (containerSpec cont) cont
+
+addSourcePos :: Container -> Blocks -> Blocks
+addSourcePos cont =
+   if containerSourcePos cont
+      then fmap
+           (addPos (Pos (containerStartLine cont) (containerStartColumn cont)
+                         (containerEndLine cont) (containerEndColumn cont)))
+      else id
 
 finalizeChildren :: Container -> Blocks
 finalizeChildren = foldMap finalize . containerChildren
