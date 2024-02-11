@@ -109,10 +109,10 @@ integrate (k,v) kvs =
         (k, v <> " " <> v') : filter (\(k',_) -> k' /= "class") kvs
       | otherwise -> kvs
 
-data Pos = Pos Int Int Int Int -- start line, start col, end line, end col
+data Pos = NoPos | Pos Int Int Int Int -- start line, start col, end line, end col
   deriving (Show, Eq, Ord, Typeable, Generic)
 
-data Node a = Node (Maybe Pos) Attr a
+data Node a = Node Pos Attr a
   deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
 
 {-# INLINE addAttr #-}
@@ -121,7 +121,7 @@ addAttr attr (Node pos attr' bs) = Node pos (attr' <> attr) bs
 
 {-# INLINE addPos #-}
 addPos :: Pos -> Node a -> Node a
-addPos pos (Node _ attr bs) = Node (Just pos) attr bs
+addPos pos (Node _ attr bs) = Node pos attr bs
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
@@ -175,9 +175,9 @@ instance Semigroup Inlines where
           -> Many (as' <> (Node newpos attr (Str (s <> t)) Seq.<| bs'))
           where
             newpos = case (pos1, pos2) of
-                       (Just (Pos sl sc _ _), Just (Pos _ _ el ec)) ->
-                         Just (Pos sl sc el ec)
-                       _ -> Nothing
+                       (Pos sl sc _ _, Pos _ _ el ec) ->
+                         Pos sl sc el ec
+                       _ -> NoPos
       (as' Seq.:> Node pos attr (Str s), Node _ _ HardBreak Seq.:< _)
         | B8.all isSpaceOrTab (B8.takeEnd 1 s)
           -> Many (as' <> (Node pos attr (Str (B8.dropWhileEnd isSpaceOrTab s))
@@ -296,7 +296,7 @@ lookupReference label (ReferenceMap rm) =
 
 {-# INLINE inline #-}
 inline :: Inline -> Inlines
-inline = Many . Seq.singleton . Node Nothing mempty
+inline = Many . Seq.singleton . Node NoPos mempty
 
 str, verbatim, symbol :: ByteString -> Inlines
 str = inline . Str
@@ -348,7 +348,7 @@ rawInline f = inline . RawInline f
 --
 
 block :: Block -> Blocks
-block = Many . Seq.singleton . Node Nothing mempty
+block = Many . Seq.singleton . Node NoPos mempty
 
 para :: Inlines -> Blocks
 para = block . Para

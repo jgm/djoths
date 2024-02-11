@@ -19,7 +19,7 @@ import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Builder (Builder, byteString, word8, intDec)
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (fromMaybe)
 import Data.List (sort)
 import Control.Monad.State
 import qualified Data.Foldable as F
@@ -44,15 +44,15 @@ toNotes = do
   let revnoterefs = sort $ map swap $ M.toList noterefs
   let toNote (num, lab) =
         let num' = B8.pack (show num)
-        in  inTags "li" Nothing (Attr [("id", "fn" <> num')])
+        in  inTags "li" NoPos (Attr [("id", "fn" <> num')])
               ("\n" <> fromMaybe mempty (M.lookup lab (renderedNotes st)))
              <> "\n"
   if numnotes < 1
      then pure mempty
      else pure $
-           inTags "section" Nothing (Attr [("role", "doc-endnotes")])
-            ("\n" <> singleTag "hr" Nothing mempty <> "\n" <>
-              inTags "ol" Nothing mempty ("\n" <> foldMap toNote revnoterefs) <> "\n")
+           inTags "section" NoPos (Attr [("role", "doc-endnotes")])
+            ("\n" <> singleTag "hr" NoPos mempty <> "\n" <>
+              inTags "ol" NoPos mempty ("\n" <> foldMap toNote revnoterefs) <> "\n")
              <> "\n"
 
 addBackref :: ByteString -> Blocks -> Blocks
@@ -61,10 +61,10 @@ addBackref num (Many bls) =
       case Seq.viewr bls of
           rest Seq.:> Node pos attr (Para ils) ->
             rest Seq.|> Node pos attr (Para (ils <> backlink))
-          _ -> bls Seq.|> Node Nothing mempty (Para backlink)
+          _ -> bls Seq.|> Node NoPos mempty (Para backlink)
  where
    backlink = Many $ Seq.singleton $
-               Node Nothing (Attr [("role", "doc-backlink")])
+               Node NoPos (Attr [("role", "doc-backlink")])
                  (Link (str (strToUtf8 "\8617\65038"))
                  (Direct ("#fnref" <> num)))
 
@@ -132,11 +132,11 @@ instance ToBuilder (Node Block) where
       Section bls -> do
         contents <- toBuilder bls
         pure $ addNl $ inTags "section" pos attr $ "\n" <> contents
-      ThematicBreak -> pure $ addNl $ singleTag "hr" Nothing attr
+      ThematicBreak -> pure $ addNl $ singleTag "hr" NoPos attr
       BulletList listSpacing items ->
         addNl . inTags "ul" pos attr . ("\n" <>) . mconcat <$> mapM toLi items
           where
-            toLi bls = addNl . inTags "li" Nothing mempty . ("\n" <>) <$>
+            toLi bls = addNl . inTags "li" NoPos mempty . ("\n" <>) <$>
                           toItemContents listSpacing bls
       OrderedList listAttr listSpacing items ->
         addNl . inTags "ol" pos (Attr [("start", strToUtf8 (show start))
@@ -151,7 +151,7 @@ instance ToBuilder (Node Block) where
                     RomanUpper -> "I"
                     RomanLower -> "i"
             start = orderedListStart listAttr
-            toLi bls = addNl . inTags "li" Nothing mempty . ("\n" <>)
+            toLi bls = addNl . inTags "li" NoPos mempty . ("\n" <>)
                           <$> toItemContents listSpacing bls
       DefinitionList listSpacing defs ->
         addNl . inTags "dl" pos attr . ("\n" <>) . mconcat
@@ -163,7 +163,7 @@ instance ToBuilder (Node Block) where
       BlockQuote bls ->
         addNl . inTags "blockquote" pos attr . ("\n" <>) <$> toBuilder bls
       CodeBlock lang bs -> pure $
-        inTags "pre" pos attr (inTags "code" Nothing codeattr (escapeHtml bs))
+        inTags "pre" pos attr (inTags "code" NoPos codeattr (escapeHtml bs))
           <> "\n"
          where
            codeattr = if B.null lang
@@ -174,7 +174,7 @@ instance ToBuilder (Node Block) where
         capt <- case mbCaption of
                    Nothing -> pure mempty
                    Just (Caption bs) ->
-                     addNl . inTags "caption" Nothing mempty
+                     addNl . inTags "caption" NoPos mempty
                        <$> case F.toList (unMany bs) of
                               [Node _pos at (Para ils)] | at == mempty
                                  -> toBuilder ils
@@ -184,14 +184,14 @@ instance ToBuilder (Node Block) where
       RawBlock _ _ -> pure mempty
 
 toRow :: [Cell] -> State BState Builder
-toRow cells = (<> "\n") . inTags "tr" Nothing mempty . ("\n" <>) . mconcat
+toRow cells = (<> "\n") . inTags "tr" NoPos mempty . ("\n" <>) . mconcat
                 <$> mapM toCell cells
 
 toCell :: Cell -> State BState Builder
 toCell (Cell cellType align ils) =
   (<> "\n") . inTags (if cellType == HeadCell
                          then "th"
-                         else "td") Nothing attr <$> toBuilder ils
+                         else "td") NoPos attr <$> toBuilder ils
  where
    attr = Attr $ case align of
                    AlignDefault -> []
@@ -223,7 +223,7 @@ toTaskListItem listSpacing (status, bs) = do
                          ils <>
                          rawInline (Format "html") "</label>")) Seq.<| rest))
             _ -> toBuilder $ rawBlock (Format "html") input <> bs
-  pure $ inTags "li" Nothing (Attr [("class", if status == Complete
+  pure $ inTags "li" NoPos (Attr [("class", if status == Complete
                                              then "checked"
                                              else "unchecked")])  ("\n" <> body) <> "\n"
  where
@@ -233,19 +233,19 @@ toTaskListItem listSpacing (status, bs) = do
 
 toDefinition :: ListSpacing -> (Inlines, Blocks) -> State BState Builder
 toDefinition listSpacing (term, defn) = (<>) <$>
-  ((<> "\n") . inTags "dt" Nothing mempty <$> toBuilder term) <*>
-  ((<> "\n") . inTags "dd" Nothing mempty . ("\n" <>) <$> toItemContents listSpacing defn)
+  ((<> "\n") . inTags "dt" NoPos mempty <$> toBuilder term) <*>
+  ((<> "\n") . inTags "dd" NoPos mempty . ("\n" <>) <$> toItemContents listSpacing defn)
 
 instance ToBuilder (Node Inline) where
   toBuilder (Node pos attr il) =
     case il of
       Str bs -> case attr of
-                   Attr [] | isNothing pos -> pure $ escapeHtml bs
+                   Attr [] | pos == NoPos -> pure $ escapeHtml bs
                    _ -> pure $ inTags "span" pos attr $ escapeHtml bs
       SoftBreak -> do
         opts <- gets options
         pure $ word8 $ if preserveSoftBreaks opts then 10 else 32
-      HardBreak -> pure $ singleTag "br" Nothing attr <> "\n"
+      HardBreak -> pure $ singleTag "br" NoPos attr <> "\n"
       NonBreakingSpace -> pure $ byteString "&nbsp;"
       Emph ils -> inTags "em" pos attr <$> toBuilder ils
       Strong ils -> inTags "strong" pos attr <$> toBuilder ils
@@ -316,7 +316,7 @@ instance ToBuilder (Node Inline) where
                  inTags "sup" pos mempty (escapeHtml num')
 
 {-# INLINE inTags #-}
-inTags :: ByteString -> Maybe Pos -> Attr -> Builder -> Builder
+inTags :: ByteString -> Pos -> Attr -> Builder -> Builder
 inTags tag pos attr contents =
   "<" <> byteString tag <> posToBuilder pos
       <> attrToBuilder attr <> ">" <> contents
@@ -324,7 +324,7 @@ inTags tag pos attr contents =
 
 
 {-# INLINE singleTag #-}
-singleTag :: ByteString -> Maybe Pos -> Attr -> Builder
+singleTag :: ByteString -> Pos -> Attr -> Builder
 singleTag tag pos attr =
   "<" <> byteString tag <> posToBuilder pos <> attrToBuilder attr <> ">"
 
@@ -335,9 +335,9 @@ attrToBuilder (Attr pairs) = foldMap go pairs
    go (k,v) = " " <> byteString k <> "=\"" <> escapeHtmlAttribute v <> "\""
 
 {-# INLINE posToBuilder #-}
-posToBuilder :: Maybe Pos -> Builder
-posToBuilder Nothing = mempty
-posToBuilder (Just (Pos sl sc el ec)) =
+posToBuilder :: Pos -> Builder
+posToBuilder NoPos = mempty
+posToBuilder (Pos sl sc el ec) =
   " data-pos=\"" <> intDec sl <> ":" <> intDec sc <> "-" <>
      (if el /= sl then intDec el <> ":" else "") <> intDec ec <> "\""
 
