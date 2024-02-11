@@ -13,7 +13,6 @@ module Djot.AST
   Format(..),
   Node(Node),
   Pos(..),
-  noPos,
   addAttr,
   addPos,
   Block(..),
@@ -113,10 +112,7 @@ integrate (k,v) kvs =
 data Pos = Pos Int Int Int Int -- start line, start col, end line, end col
   deriving (Show, Eq, Ord, Typeable, Generic)
 
-noPos :: Pos
-noPos = Pos 0 0 0 0
-
-data Node a = Node Pos Attr a
+data Node a = Node (Maybe Pos) Attr a
   deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
 
 {-# INLINE addAttr #-}
@@ -125,7 +121,7 @@ addAttr attr (Node pos attr' bs) = Node pos (attr' <> attr) bs
 
 {-# INLINE addPos #-}
 addPos :: Pos -> Node a -> Node a
-addPos pos (Node _ attr bs) = Node pos attr bs
+addPos pos (Node _ attr bs) = Node (Just pos) attr bs
 
 newtype Format = Format { unFormat :: ByteString }
   deriving (Show, Eq, Ord, Typeable, Generic)
@@ -174,10 +170,14 @@ type Inlines = Many (Node Inline)
 instance Semigroup Inlines where
   Many as <> Many bs =
     case (Seq.viewr as, Seq.viewl bs) of
-      (as' Seq.:> Node (Pos sl sc _ _) attr (Str s),
-         Node (Pos _ _ el ec) attr' (Str t) Seq.:< bs')
+      (as' Seq.:> Node pos1 attr (Str s), Node pos2 attr' (Str t) Seq.:< bs')
         | attr == attr'
-          -> Many (as' <> (Node (Pos sl sc el ec) attr (Str (s <> t)) Seq.<| bs'))
+          -> Many (as' <> (Node newpos attr (Str (s <> t)) Seq.<| bs'))
+          where
+            newpos = case (pos1, pos2) of
+                       (Just (Pos sl sc _ _), Just (Pos _ _ el ec)) ->
+                         Just (Pos sl sc el ec)
+                       _ -> Nothing
       (as' Seq.:> Node pos attr (Str s), Node _ _ HardBreak Seq.:< _)
         | B8.all isSpaceOrTab (B8.takeEnd 1 s)
           -> Many (as' <> (Node pos attr (Str (B8.dropWhileEnd isSpaceOrTab s))
@@ -296,7 +296,7 @@ lookupReference label (ReferenceMap rm) =
 
 {-# INLINE inline #-}
 inline :: Inline -> Inlines
-inline = Many . Seq.singleton . Node noPos mempty
+inline = Many . Seq.singleton . Node Nothing mempty
 
 str, verbatim, symbol :: ByteString -> Inlines
 str = inline . Str
@@ -348,7 +348,7 @@ rawInline f = inline . RawInline f
 --
 
 block :: Block -> Blocks
-block = Many . Seq.singleton . Node noPos mempty
+block = Many . Seq.singleton . Node Nothing mempty
 
 para :: Inlines -> Blocks
 para = block . Para
