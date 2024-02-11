@@ -120,14 +120,14 @@ pInline :: P Inlines
 pInline = do
   sline <- sourceLine
   scol <- sourceColumn
-  res <- pInline' >>= pOptionalAttributes
+  res <- pInline'
   opts <- options <$> getState
-  case sourcePositions opts of
+  (case sourcePositions opts of
      AllSourcePos -> do
        eline <- sourceLine
        ecol <- sourceColumn
        pure $ addPos (Pos sline scol eline (ecol - 1)) <$> res
-     _ -> pure res
+     _ -> pure res) >>= pOptionalAttributes
 
 pOptionalAttributes :: Inlines -> P Inlines
 pOptionalAttributes (Many ils) = pAddAttributes (Many ils) <|> pure (Many ils)
@@ -146,9 +146,17 @@ pAddAttributes (Many ils) = do
                let (front, lastword) = B8.breakEnd isWs bs
                in if B.null lastword
                      then Many ils
-                     else Many (ils' Seq.|>
-                                     Node pos attr' (Str front) Seq.|>
-                                     Node pos attr (Str lastword))
+                     else
+                       let (pos1, pos2) =
+                               case pos of
+                                 NoPos -> (NoPos, NoPos)
+                                 Pos sl sc el ec ->
+                                   let frontlen = length (utf8ToStr front)
+                                   in (Pos sl sc sl (sc + frontlen),
+                                       Pos sl (sc + frontlen + 1) el ec)
+                       in Many (ils' Seq.|>
+                                     Node pos1 attr' (Str front) Seq.|>
+                                     Node pos2 attr (Str lastword))
              ils' Seq.:> Node pos attr' il ->
                Many (ils' Seq.|> Node pos (attr' <> attr) il)
 
