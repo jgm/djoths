@@ -150,7 +150,6 @@ instance ToLayout Attr where
                 else "{" <> contents <> "}"
        where
          contents = hsep (map go kvs)
-         go ("data-pos",_) = mempty
          go ("id",ident) = literal ("#" <> fromUtf8 ident)
          go ("class", classes') = hsep $ map (("." <>) . literal)
                                        $ T.words $ fromUtf8 classes'

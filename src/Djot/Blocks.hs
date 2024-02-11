@@ -31,7 +31,6 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
 import Data.Typeable (Typeable)
-import Text.Printf (printf)
 -- import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
@@ -1056,16 +1055,12 @@ closeInappropriateContainers spec = do
 
 finalize :: Container -> Blocks
 finalize cont =
-  addAttr (if containerSourcePos cont
-              then Attr [("data-pos", B8.pack $
-                            printf "%d:%d-%d:%d"
-                                (containerStartLine cont)
-                                (containerStartColumn cont)
-                                (containerEndLine cont)
-                                (containerEndColumn cont))] <>
-                     containerAttr cont
-              else containerAttr cont)
-     <$> blockFinalize (containerSpec cont) cont
+  addAttr (containerAttr cont) .
+  (if containerSourcePos cont
+      then addPos (Pos (containerStartLine cont) (containerStartColumn cont)
+                       (containerEndLine cont) (containerEndColumn cont))
+      else id)
+    <$> blockFinalize (containerSpec cont) cont
 
 finalizeChildren :: Container -> Blocks
 finalizeChildren = foldMap finalize . containerChildren

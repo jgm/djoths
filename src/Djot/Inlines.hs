@@ -18,7 +18,6 @@ import Djot.Parse
 import Djot.Options (ParseOptions(..), SourcePosOption(..))
 import Djot.Attributes (pAttributes)
 import Djot.AST
-import Text.Printf (printf)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
@@ -116,10 +115,7 @@ pInline = do
   ecol <- sourceColumn
   opts <- options <$> getState
   case sourcePositions opts of
-     AllSourcePos -> pure $
-       addAttr (Attr [("data-pos", B8.pack $
-                          printf "%d:%d-%d:%d" sline scol eline ecol)])
-               <$> res
+     AllSourcePos -> pure $ addPos (Pos sline scol eline ecol) <$> res
      _ -> pure res
 
 pOptionalAttributes :: Inlines -> P Inlines
