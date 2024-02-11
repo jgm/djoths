@@ -140,7 +140,8 @@ pAddAttributes (Many ils) = do
       Attr [] -> Many ils
       _ -> case Seq.viewr ils of
              Seq.EmptyR -> mempty
-             ils' Seq.:> Node pos attr' (Str bs) ->
+             ils' Seq.:> Node pos attr' (Str bs)
+               | B8.any isWs bs ->
                -- attach attribute to last word
                let (front, lastword) = B8.breakEnd isWs bs
                in if B.null lastword
