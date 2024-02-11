@@ -85,36 +85,7 @@ data Delim = Delim Bool Char
 type P = Parser ParserState
 
 pInlines :: P Inlines
-pInlines = skipMany ws *> (consolidate . mconcat <$> many pInline)
-
-{-# INLINE consolidate #-}
--- This is need so that we don't have Str "*", Str "x"
--- so that only the "x" gets following attributes.
--- e.g.  *x{.foo}
-consolidate :: Inlines -> Inlines
-consolidate (Many ils') = Many (foldl' go mempty ils')
- where
-   go ils il@(Node pos attr (Str s)) =
-     case Seq.viewr ils of
-              start Seq.:> Node pos' (Attr []) (Str s')
-                | (sa, sb) <- B8.spanEnd (not . isWs) s'
-                , not (B8.null sb)
-                -> if B8.null sa
-                      then start Seq.|> Node (pos <> pos') attr (Str (sb <> s))
-                      else
-                        let lena = length (utf8ToStr sa)
-                            lenb = length (utf8ToStr sb)
-                            pos1 = case pos' of
-                                     NoPos -> NoPos
-                                     Pos sl sc el ec -> Pos sl sc el (ec - lenb)
-                            pos2 = case (pos', pos) of
-                                     (Pos sl' sc' _ _, Pos _ _ el ec)
-                                       -> Pos sl' (sc' + lena) el ec
-                                     _ -> NoPos
-                        in start Seq.|> Node pos1 (Attr []) (Str sa)
-                                 Seq.|> Node pos2 attr (Str (sb <> s))
-              _ -> ils Seq.|> il
-   go ils il = ils Seq.|> il
+pInlines = skipMany ws *> (mconcat <$> many pInline)
 
 pInline :: P Inlines
 pInline = do
@@ -145,13 +116,14 @@ pAddAttributes (Many ils) = do
                -- attach attribute to last word
                let (front, lastword) = B8.breakEnd isWs bs
                in if B.null lastword
-                     then Many ils
+                     then Many ils  -- ignore attr after whitespace
                      else
                        let (pos1, pos2) =
                                case pos of
                                  NoPos -> (NoPos, NoPos)
                                  Pos sl sc el ec ->
-                                   let frontlen = length (utf8ToStr front)
+                                   let frontlen = B8.length
+                                        (B8.filter (\c -> c < '\128' || c >= '\192') front)
                                    in (Pos sl sc sl (sc + frontlen),
                                        Pos sl (sc + frontlen + 1) el ec)
                        in Many (ils' Seq.|>

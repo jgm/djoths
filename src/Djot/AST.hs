@@ -88,6 +88,8 @@ import Data.Data (Data, Typeable)
 import qualified Data.ByteString.Char8 as B8
 import GHC.Generics (Generic)
 
+-- import Debug.Trace
+
 newtype Attr = Attr [(ByteString, ByteString)]
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
 
@@ -181,6 +183,22 @@ instance Semigroup Inlines where
   Many as <> Many bs =
     case (Seq.viewr as, Seq.viewl bs) of
       (as' Seq.:> Node pos1 attr (Str s), Node pos2 attr' (Str t) Seq.:< bs')
+        | attr == attr' || attr == mempty
+        , (sa, sb) <- B8.spanEnd (not . isSpaceOrTab) s
+        , not (B8.null sb)
+          -> if B8.null sa
+                then
+                  Many (as' <> (Node (pos1 <> pos2) attr' (Str (s <> t)) Seq.<| bs'))
+                else
+                  let sblen = B8.length (B8.filter (\c -> c < '\128' || c >= '\192') sb)
+                      (pos1', pos2') =
+                        case pos1 <> pos2 of
+                            NoPos -> (NoPos, NoPos)
+                            Pos sl sc el ec ->
+                              (Pos sl sc el (ec - sblen),
+                               Pos sl (sc + sblen + 1) el ec)
+                  in  Many ((as' Seq.|> Node pos1' mempty (Str sa)
+                        Seq.|> Node pos2' attr (Str (sb <> t))) <> bs')
         | attr == attr'
           -> Many (as' <> (Node (pos1 <> pos2) attr (Str (s <> t)) Seq.<| bs'))
       (as' Seq.:> Node pos attr (Str s), Node _ _ HardBreak Seq.:< _)
