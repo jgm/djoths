@@ -35,6 +35,7 @@ main = do
           | (fp, ts) <- tests
           , takeFileName fp /= "raw.test"]
     , testGroup "Djot.Parse" parserTests
+    , testGroup "sourcepos" sourcePosTests
     , testGroup "Fuzz"
        [testProperty "parses all inputs"
          (\s -> case parseDoc ParseOptions{ sourcePositions = NoSourcePos }
@@ -52,6 +53,25 @@ parserTests =
   , testProperty "UTF8 conversion round-trips"
       (\s -> utf8ToStr (strToUtf8 s) == s)
   ]
+
+sourcePosTests :: [TestTree]
+sourcePosTests =
+  let convert = either mempty (fromUtf8 . toLazyByteString .
+                      renderHtml RenderOptions{ preserveSoftBreaks = True })
+                 . parseDoc ParseOptions{ sourcePositions = AllSourcePos }
+  in [ testCase "period at end" $
+        convert "the `goo` option.\n" @?=
+        "<p data-pos=\"1:1-2:0\"><span data-pos=\"1:1-1:4\">the </span><code data-pos=\"1:5-1:9\">goo</code><span data-pos=\"1:10-1:17\"> option.</span></p>\n"
+     , testCase "attr after *" $
+        convert "*{.foo}\n" @?=
+        "<p data-pos=\"1:1-2:0\"><span data-pos=\"1:1-1:1\" class=\"foo\">*</span></p>\n"
+     , testCase "no newline at end" $
+        convert "foo" @?=
+        "<p data-pos=\"1:1-1:3\"><span data-pos=\"1:1-1:3\">foo</span></p>\n"
+     , testCase "list" $
+        convert "1. > hello\nthere\n\n2.  ok" @?=
+        "<ol data-pos=\"1:4-4:0\">\n<li>\n<blockquote data-pos=\"1:4-3:0\">\n<p data-pos=\"1:6-3:0\"><span data-pos=\"1:6-1:10\">hello</span>\n<span data-pos=\"2:1-2:5\">there</span></p>\n</blockquote>\n</li>\n<li>\n<p data-pos=\"4:5-4:0\"><span data-pos=\"4:5-4:6\">ok</span></p>\n</li>\n</ol>\n"
+     ]
 
 toChunks :: B.ByteString -> [Chunk]
 toChunks bs = [Chunk{ chunkBytes = bs, chunkLine = 1, chunkColumn = 0 }]
