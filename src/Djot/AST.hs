@@ -183,7 +183,7 @@ instance Semigroup Inlines where
   Many as <> Many bs =
     case (Seq.viewr as, Seq.viewl bs) of
       (as' Seq.:> Node pos1 attr (Str s), Node pos2 attr' (Str t) Seq.:< bs')
-        | attr == attr' || attr == mempty
+        | attr == mempty && attr' /= mempty
         , (sa, sb) <- B8.spanEnd (not . isSpaceOrTab) s
         , not (B8.null sb)
           -> if B8.null sa
