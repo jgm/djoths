@@ -126,7 +126,7 @@ pInline = do
      AllSourcePos -> do
        eline <- sourceLine
        ecol <- sourceColumn
-       pure $ addPos (Pos sline scol eline ecol) <$> res
+       pure $ addPos (Pos sline scol eline (ecol - 1)) <$> res
      _ -> pure res
 
 pOptionalAttributes :: Inlines -> P Inlines

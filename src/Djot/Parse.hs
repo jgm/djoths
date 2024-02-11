@@ -145,7 +145,7 @@ unsafeAdvanceByte st
      = case B.index (subject st) (offset st) of
          10 -> st{ offset = offset st + 1
                  , line = line st + 1
-                 , column = 0 }
+                 , column = 1 }
          9 -> st{ offset = offset st + 1
                 , column = column st + (4 - (column st `mod` 4)) }
          !w | w < 0x80 -> st{ offset = offset st + 1

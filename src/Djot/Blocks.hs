@@ -46,7 +46,7 @@ parseDoc opts bs = do
                         , psAttrParserState = Nothing
                         , psIds = mempty
                         , psAutoIds = mempty
-                        } [Chunk{ chunkLine = 1, chunkColumn = 0, chunkBytes = bs }] of
+                        } [Chunk{ chunkLine = 1, chunkColumn = 1, chunkBytes = bs }] of
     Just doc -> Right doc
     Nothing -> Left "Parse failure."
 
