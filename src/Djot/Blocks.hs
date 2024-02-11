@@ -298,7 +298,13 @@ itemsToList (ltypes, containers) =
                _ -> Tight
            items' = toList items
            taskListStatus = map getTaskStatus (toList containers)
-       in case ltypes of
+           pos = case (Seq.viewl containers, Seq.viewr containers) of
+                    (s Seq.:< _, _ Seq.:> e) | containerSourcePos s ->
+                      Pos (containerStartLine s) (containerStartColumn s)
+                          (containerEndLine e) (containerEndColumn e)
+                    _ -> NoPos
+       in addPos pos <$>
+          case ltypes of
             Bullet{} : _-> bulletList spacing items'
             Ordered _ : _->
               orderedList (chooseOrderedAttr ltypes) spacing items'
