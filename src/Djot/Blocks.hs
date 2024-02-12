@@ -104,8 +104,8 @@ listItemSpec =
       tip :| _ <- psContainerStack <$> getState
       case blockContainsBlock (containerSpec tip) of
         Just ListItem -> pure ()
-        _ -> addContainer listSpec NoData
-      addContainer listItemSpec (ListItemData ind ltypes False)
+        _ -> addContainer listSpec ind NoData
+      addContainer listItemSpec ind (ListItemData ind ltypes False)
   , blockContinue = \container -> do
           True <$ fails
             (do skipMany spaceOrTab
@@ -428,10 +428,11 @@ blockQuoteSpec =
   { blockName = "BlockQuote"
   , blockType = Normal
   , blockStart = do
+      ind <- sourceColumn
       asciiChar '>'
       followedByWhitespace
       skipMany spaceOrTab
-      addContainer blockQuoteSpec NoData
+      addContainer blockQuoteSpec ind NoData
   , blockContinue = \_ -> do
       skipMany spaceOrTab
       asciiChar '>'
@@ -442,7 +443,7 @@ blockQuoteSpec =
   , blockContainsLines = False
   , blockClose = pure
   , blockFinalize = \container ->
-      addSourcePos container . blockQuote $ finalizeChildren container
+      addSourcePos container $ blockQuote $ finalizeChildren container
   }
 
 tableSpec :: BlockSpec
@@ -452,7 +453,8 @@ tableSpec =
   , blockType = Normal
   , blockStart = do
       lookahead pRawTableRow
-      addContainer tableSpec (TableData mempty)
+      ind <- sourceColumn
+      addContainer tableSpec ind (TableData mempty)
   , blockContinue = \container ->
       -- TODO: this is inefficient; we parse the inline contents
       -- twice. Find a better way.
@@ -546,7 +548,7 @@ captionSpec =
       ind <- sourceColumn
       asciiChar '^'
       void spaceOrTab
-      addContainer captionSpec $ CaptionData ind
+      addContainer captionSpec ind $ CaptionData ind
   , blockContinue = \container -> (do
       skipMany spaceOrTab
       curind <- sourceColumn
@@ -570,9 +572,10 @@ thematicBreakSpec =
   , blockStart = do
       let breakChar = skipSatisfyByte (\c -> c == '-' || c == '*')
                         *> skipMany spaceOrTab
+      ind <- sourceColumn
       breakChar *> breakChar *> breakChar *> skipMany breakChar
       lookahead endline
-      addContainer thematicBreakSpec NoData
+      addContainer thematicBreakSpec ind NoData
   , blockContinue = \_ -> pure False
   , blockContainsBlock = Nothing
   , blockContainsLines = True
@@ -586,12 +589,13 @@ headingSpec =
   { blockName = "Heading"
   , blockType = Normal
   , blockStart = do
+      ind <- sourceColumn
       lev <- length <$> some (asciiChar '#')
       followedByWhitespace
       skipMany spaceOrTab
       closeContainingSections lev
-      addContainer sectionSpec $ SectionData lev Nothing
-      addContainer headingSpec $ HeadingData lev mempty
+      addContainer sectionSpec ind $ SectionData lev Nothing
+      addContainer headingSpec ind $ HeadingData lev mempty
   , blockContinue = \container -> do
        do skipMany spaceOrTab
           let lev = case containerData container of
@@ -633,7 +637,7 @@ codeBlockSpec =
                   <* skipMany spaceOrTab)
              <|> pure ""
       lookahead endline
-      addContainer codeBlockSpec (CodeBlockData ticks lang indent)
+      addContainer codeBlockSpec indent (CodeBlockData ticks lang indent)
   , blockContinue = \container -> do
       let (ticks, indent) = case containerData container of
                               CodeBlockData t _ i -> (t, i)
@@ -667,13 +671,14 @@ divSpec =
   { blockName = "Div"
   , blockType = Normal
   , blockStart = do
+      ind <- sourceColumn
       colons <- byteStringOf $
         asciiChar ':' *> asciiChar ':' *> skipSome (asciiChar ':')
       skipMany spaceOrTab
       label <- byteStringOf $ skipMany $ skipSatisfyByte (not . isWs)
       skipMany spaceOrTab
       lookahead endline
-      addContainer divSpec (DivData colons label)
+      addContainer divSpec ind (DivData colons label)
   , blockContinue = \container -> (do
       tip <- getTip
       -- see jgm/djot.js#109
@@ -710,7 +715,7 @@ attrSpec =
   , blockStart = do
       ind <- sourceColumn
       lookahead $ asciiChar '{'
-      addContainer attrSpec $ AttributeData ind
+      addContainer attrSpec ind $ AttributeData ind
   , blockContinue = \container -> do
       let ind = case containerData container of
                   AttributeData i -> i
@@ -756,6 +761,7 @@ referenceDefinitionSpec =
   { blockName = "ReferenceDefinition"
   , blockType = Normal
   , blockStart = do
+      ind <- sourceColumn
       asciiChar '['
       fails (asciiChar '^') -- footnote
       label <- byteStringOf
@@ -763,7 +769,7 @@ referenceDefinitionSpec =
       asciiChar ']'
       asciiChar ':'
       skipMany spaceOrTab
-      addContainer referenceDefinitionSpec
+      addContainer referenceDefinitionSpec ind
         (ReferenceData (normalizeLabel label))
   , blockContinue = \_ ->
       True <$ skipSome spaceOrTab `notFollowedBy` endline
@@ -796,7 +802,7 @@ footnoteSpec =
       asciiChar ']'
       asciiChar ':'
       skipMany spaceOrTab
-      addContainer footnoteSpec $ FootnoteData ind (normalizeLabel label)
+      addContainer footnoteSpec ind $ FootnoteData ind (normalizeLabel label)
   , blockContinue = \container -> (do
       skipMany spaceOrTab
       curind <- sourceColumn
@@ -823,7 +829,10 @@ paraSpec =
   BlockSpec
   { blockName = "Para"
   , blockType = Normal
-  , blockStart = fails followedByBlankLine *> addContainer paraSpec NoData
+  , blockStart = do
+      fails followedByBlankLine
+      ind <- sourceColumn
+      addContainer paraSpec ind NoData
   , blockContinue = \_ -> do
       skipMany spaceOrTab
       (False <$ lookahead (endline <|> eof)) <|> pure True
@@ -934,7 +943,7 @@ checkContinuations = go . reverse . NonEmpty.toList
                      curcol <- sourceColumn
                      updateState $ \st ->
                                      st{ psLastLine = curline
-                                       , psLastColumnPrevLine = curcol }
+                                       , psLastColumnPrevLine = curcol - 1 }
                   if fromMaybe False continue
                      then go cs
                      else False <$ -- close len (c:cs) containers
@@ -1052,10 +1061,9 @@ modifyContainers f =
   updateState $ \st -> st{ psContainerStack = f (psContainerStack st) }
 
 {-# INLINE addContainer #-}
-addContainer :: BlockSpec -> ContainerData -> P ()
-addContainer bspec bdata = do
+addContainer :: BlockSpec -> Int -> ContainerData -> P ()
+addContainer bspec curcol bdata = do
   curline <- sourceLine
-  curcol <- sourceColumn
   attr <- psAttributes <$> getState
   opts <- psParseOptions <$> getState
   let newcontainer = emptyContainer { containerSpec = bspec
