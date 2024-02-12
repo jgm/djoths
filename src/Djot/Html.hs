@@ -132,7 +132,7 @@ instance ToBuilder (Node Block) where
       Section bls -> do
         contents <- toBuilder bls
         pure $ addNl $ inTags "section" pos attr $ "\n" <> contents
-      ThematicBreak -> pure $ addNl $ singleTag "hr" NoPos attr
+      ThematicBreak -> pure $ addNl $ singleTag "hr" pos attr
       BulletList listSpacing items ->
         addNl . inTags "ul" pos attr . ("\n" <>) . mconcat <$> mapM toLi items
           where

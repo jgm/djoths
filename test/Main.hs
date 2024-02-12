@@ -61,16 +61,25 @@ sourcePosTests =
                  . parseDoc ParseOptions{ sourcePositions = AllSourcePos }
   in [ testCase "period at end" $
         convert "the `goo` option.\n" @?=
-        "<p data-pos=\"1:1-2:0\"><span data-pos=\"1:1-1:4\">the </span><code data-pos=\"1:5-1:9\">goo</code><span data-pos=\"1:10-1:17\"> option.</span></p>\n"
+        "<p data-pos=\"1:1-1:17\"><span data-pos=\"1:1-1:4\">the </span><code data-pos=\"1:5-1:9\">goo</code><span data-pos=\"1:10-1:17\"> option.</span></p>\n"
      , testCase "attr after *" $
         convert "*{.foo}\n" @?=
-        "<p data-pos=\"1:1-2:0\"><span data-pos=\"1:1-1:1\" class=\"foo\">*</span></p>\n"
+        "<p data-pos=\"1:1-1:7\"><span data-pos=\"1:1-1:1\" class=\"foo\">*</span></p>\n"
      , testCase "no newline at end" $
         convert "foo" @?=
         "<p data-pos=\"1:1-1:3\"><span data-pos=\"1:1-1:3\">foo</span></p>\n"
      , testCase "list" $
         convert "1. > hello\nthere\n\n2.  ok" @?=
-        "<ol data-pos=\"1:4-4:0\">\n<li>\n<blockquote data-pos=\"1:4-3:0\">\n<p data-pos=\"1:6-3:0\"><span data-pos=\"1:6-1:10\">hello</span>\n<span data-pos=\"2:1-2:5\">there</span></p>\n</blockquote>\n</li>\n<li>\n<p data-pos=\"4:5-4:0\"><span data-pos=\"4:5-4:6\">ok</span></p>\n</li>\n</ol>\n"
+        "<ol data-pos=\"1:4-4:6\">\n<li>\n<blockquote data-pos=\"1:4-2:5\">\n<p data-pos=\"1:6-2:5\"><span data-pos=\"1:6-1:10\">hello</span>\n<span data-pos=\"2:1-2:5\">there</span></p>\n</blockquote>\n</li>\n<li>\n<p data-pos=\"4:5-4:6\"><span data-pos=\"4:5-4:6\">ok</span></p>\n</li>\n</ol>\n"
+     , testCase "code block" $
+        convert "``` ruby\nhi\n```\n" @?=
+        "<pre data-pos=\"1:1-3:3\"><code class=\"language-ruby\">hi\n</code></pre>\n"
+     , testCase "nested " $
+        convert "*_hi_*" @?=
+        "<p data-pos=\"1:1-1:6\"><strong data-pos=\"1:1-1:6\"><em data-pos=\"1:2-1:5\"><span data-pos=\"1:3-1:4\">hi</span></em></strong></p>\n"
+     , testCase "hr " $
+        convert "----" @?=
+        "<hr data-pos=\"1:1-1:4\">\n"
      ]
 
 toChunks :: B.ByteString -> [Chunk]

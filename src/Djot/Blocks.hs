@@ -11,6 +11,7 @@ where
 
 import Prelude hiding (div)
 import Text.Read (readMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Char (ord, isAsciiLower, isAsciiUpper, isAscii, isAlphaNum, isDigit)
 import Data.Foldable as F
 import Djot.Parse
@@ -46,6 +47,8 @@ parseDoc opts bs = do
                         , psAttrParserState = Nothing
                         , psIds = mempty
                         , psAutoIds = mempty
+                        , psLastColumnPrevLine = 0
+                        , psLastLine = 1
                         } [Chunk{ chunkLine = 1, chunkColumn = 1, chunkBytes = bs }] of
     Just doc -> Right doc
     Nothing -> Left "Parse failure."
@@ -829,7 +832,8 @@ paraSpec =
   , blockClose = \container -> do
       ils <- parseTextLines container
       pure $ container{ containerInlines = ils }
-  , blockFinalize = \container -> addSourcePos container . para $ containerInlines container
+  , blockFinalize = \container ->
+      addSourcePos container . para $ containerInlines container
   }
 
 parseTextLines :: Container -> P Inlines
@@ -899,6 +903,8 @@ data PState =
   , psAttrParserState :: Maybe AttrParserState
   , psIds :: Set ByteString
   , psAutoIds :: Set ByteString
+  , psLastColumnPrevLine :: Int
+  , psLastLine :: Int
   }
 
 type P = Parser PState
@@ -921,11 +927,19 @@ checkContinuations :: NonEmpty Container -> P Bool
 checkContinuations = go . reverse . NonEmpty.toList
  where
    go [] = return True
-   go (c:cs) = do continue <- blockContinue (containerSpec c) c <|> pure False
-                  if continue
+   go (c:cs) = do continue <- (Just <$> blockContinue (containerSpec c) c)
+                                  <|> pure Nothing
+                  when (continue == Just False) $ do -- early exit
+                     curline <- sourceLine
+                     curcol <- sourceColumn
+                     updateState $ \st ->
+                                     st{ psLastLine = curline
+                                       , psLastColumnPrevLine = curcol }
+                  if fromMaybe False continue
                      then go cs
                      else False <$ -- close len (c:cs) containers
                           replicateM_ (length (c:cs)) closeCurrentContainer
+
 
 {-# INLINE processLines #-}
 processLines :: P ()
@@ -954,7 +968,12 @@ processLines = do
 
   !curline <- sourceLine
   !curcolumn <- sourceColumn
-  !restline <- restOfLine
+  restline <- byteStringOf $ do
+     skipMany (skipSatisfyByte (\c -> c /= '\n' && c /= '\r'))
+     !lastcolumn <- sourceColumn
+     optional_ endline
+     updateState $ \st -> st{ psLastColumnPrevLine = lastcolumn - 1
+                            , psLastLine = curline }
 
   -- if current container is a line container, add remainder of line
   modifyContainers $
@@ -1015,17 +1034,17 @@ closeCurrentContainer = do
                _ -> pure ()
              c' <- blockClose (containerSpec c) c
              pure (c':|rest)
-  curline <- sourceLine
   case cs' of
     c :| (d:rest) -> updateState $
         \st -> st{ psContainerStack =
                    d{ containerChildren = containerChildren d Seq.|>
-                        c{ containerEndLine = curline
-                         , containerEndColumn = 0 } } :| rest }
+                        c{ containerEndLine = psLastLine st
+                         , containerEndColumn = psLastColumnPrevLine st } }
+                   :| rest }
     c :| [] -> updateState $
         \st -> st{ psContainerStack =
-                   c{ containerEndLine = curline
-                    , containerEndColumn = 0 } :| [] }
+                     c{ containerEndLine = psLastLine st
+                      , containerEndColumn = psLastColumnPrevLine st } :| [] }
 
 {-# INLINE modifyContainers #-}
 modifyContainers :: (NonEmpty Container -> NonEmpty Container) -> P ()
