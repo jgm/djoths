@@ -18,7 +18,7 @@ extra-source-files: test/*.test
                     benchmark/m.dj
 
 Library
-    build-depends:    base,
+    build-depends:    base >= 4.12 && < 5,
                       bytestring >= 0.11.3,
                       containers,
                       mtl,
@@ -39,7 +39,7 @@ Library
 
 executable djoths
     main-is:          Main.hs
-    build-depends:    base,
+    build-depends:    base >= 4.12 && < 5,
                       djot,
                       bytestring,
                       containers,
@@ -57,7 +57,7 @@ test-suite test-djot
   if impl(ghc >= 8.10)
     ghc-options:      -Wunused-packages
   build-depends:
-      base >= 4.9 && <5
+      base >= 4.12 && <5
     , djot
     , text
     , bytestring
