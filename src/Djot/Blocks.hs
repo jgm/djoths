@@ -24,9 +24,11 @@ import qualified Data.Sequence as Seq
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
+import Data.Text.Encoding (decodeUtf8With, encodeUtf8)
+import Data.Text.Encoding.Error (lenientDecode)
+import qualified Data.Text as T
 import Control.Monad (replicateM_, void, mzero, unless, when, guard, foldM)
 import Data.List.NonEmpty (NonEmpty(..))
-import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -1127,12 +1129,12 @@ closeContainingSections lev = do
       closeContainingSections lev
     _ -> pure ()
 
--- TODO avoid detour through String
+-- TODO avoid detour through Text
 toIdentifier :: ByteString -> ByteString
 toIdentifier bs =
   if null parts
      then "sec"
-     else strToUtf8 $ intercalate "-" parts
+     else encodeUtf8 $ T.intercalate (T.singleton '-') parts
  where
    isSym = (`elem` ("][~!@#$%^&*(){}`,.<>\\|=+/" :: [Char]))
-   parts = words $ map (\c -> if isSym c then ' ' else c) $ utf8ToStr bs
+   parts = T.words $ T.map (\c -> if isSym c then ' ' else c) $ decodeUtf8With lenientDecode bs
