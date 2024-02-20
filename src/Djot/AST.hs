@@ -91,7 +91,7 @@ import GHC.Generics (Generic)
 -- import Debug.Trace
 
 newtype Attr = Attr [(ByteString, ByteString)]
-  deriving (Show, Eq, Ord, Typeable, Generic, Data)
+  deriving (Show, Eq, Ord, Typeable, Data, Generic)
 
 instance Semigroup Attr where
   Attr as <> Attr bs =
@@ -112,7 +112,7 @@ integrate (k,v) kvs =
       | otherwise -> kvs
 
 data Pos = NoPos | Pos Int Int Int Int -- start line, start col, end line, end col
-  deriving (Show, Eq, Ord, Typeable, Generic)
+  deriving (Show, Eq, Ord, Typeable, Data, Generic)
 
 instance Semigroup Pos where
   Pos sl1 sc1 _ _ <> Pos _ _ el2 ec2 =
@@ -125,7 +125,7 @@ instance Monoid Pos where
   mempty = NoPos
 
 data Node a = Node Pos Attr a
-  deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Generic)
+  deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Data, Generic)
 
 {-# INLINE addAttr #-}
 addAttr :: Attr -> Node a -> Node a
@@ -136,18 +136,18 @@ addPos :: Pos -> Node a -> Node a
 addPos pos (Node _ attr bs) = Node pos attr bs
 
 newtype Format = Format { unFormat :: ByteString }
-  deriving (Show, Eq, Ord, Typeable, Generic)
+  deriving (Show, Eq, Ord, Typeable, Data, Generic)
 
 data MathStyle = DisplayMath | InlineMath
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data Target =
     Direct ByteString
   | Reference ByteString
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data QuoteType = SingleQuotes | DoubleQuotes
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data Inline =
       Str ByteString
@@ -172,10 +172,10 @@ data Inline =
     | Quoted QuoteType Inlines
     | SoftBreak
     | HardBreak
-    deriving (Show, Ord, Eq, Typeable, Generic)
+    deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 newtype Many a = Many { unMany :: Seq a }
-  deriving (Show, Ord, Eq, Functor, Traversable, Foldable, Typeable, Generic)
+  deriving (Show, Ord, Eq, Functor, Traversable, Foldable, Typeable, Data, Generic)
 
 type Inlines = Many (Node Inline)
 
@@ -216,37 +216,37 @@ instance Monoid Inlines where
   mempty = Many mempty
 
 data ListSpacing = Tight | Loose
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data OrderedListStyle =
   Decimal | LetterUpper | LetterLower | RomanUpper | RomanLower
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data OrderedListDelim =
   RightPeriod | RightParen | LeftRightParen
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data OrderedListAttributes =
   OrderedListAttributes
   { orderedListStyle :: OrderedListStyle
   , orderedListDelim :: OrderedListDelim
   , orderedListStart :: Int }
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data TaskStatus = Complete | Incomplete
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 newtype Caption = Caption Blocks
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data Align = AlignLeft | AlignRight | AlignCenter | AlignDefault
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data CellType = HeadCell | BodyCell
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data Cell = Cell CellType Align Inlines
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 data Block =
     Para Inlines
@@ -262,7 +262,7 @@ data Block =
   | ThematicBreak
   | Table (Maybe Caption) [[Cell]]
   | RawBlock Format ByteString
-  deriving (Show, Ord, Eq, Typeable, Generic)
+  deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 type Blocks = Many (Node Block)
 
@@ -279,7 +279,7 @@ data Doc =
      , docReferences :: ReferenceMap
      , docAutoReferences :: ReferenceMap
      , docAutoIdentifiers :: Set ByteString
-     } deriving (Show, Ord, Eq, Typeable, Generic)
+     } deriving (Show, Ord, Eq, Typeable, Data, Generic)
 
 instance Semigroup Doc where
   Doc bs ns rs ar ai <> Doc bs' ns' rs' ar' ai' =
@@ -291,7 +291,7 @@ instance Monoid Doc where
 
 -- | A map from labels to contents.
 newtype NoteMap = NoteMap { unNoteMap :: M.Map ByteString Blocks }
-  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
+  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Data, Generic)
 
 insertNote :: ByteString -> Blocks -> NoteMap -> NoteMap
 insertNote label ref (NoteMap m) =
@@ -303,7 +303,7 @@ lookupNote label (NoteMap m) =
 
 newtype ReferenceMap =
   ReferenceMap { unReferenceMap :: M.Map ByteString (ByteString, Attr) }
-  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Generic)
+  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Data, Generic)
 
 normalizeLabel :: ByteString -> ByteString
 normalizeLabel = B8.unwords . B8.words
