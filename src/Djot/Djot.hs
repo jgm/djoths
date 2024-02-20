@@ -131,6 +131,15 @@ escapeDjot Normal bs
     | escapable c = '\\' : c : go cs
     | otherwise = c : go cs
 
+newtype BlockAttr = BlockAttr Attr
+
+formatAttrPart :: (ByteString, ByteString) -> Layout.Doc Text
+formatAttrPart ("id",ident) = literal ("#" <> fromUtf8 ident)
+formatAttrPart ("class", classes') = hsep $ map (("." <>) . literal)
+                                         $ T.words $ fromUtf8 classes'
+formatAttrPart (k,v) = literal (fromUtf8 k) <> "=" <>
+                       doubleQuotes (literal (escapeDjot Normal v))
+
 {-# SPECIALIZE toLayout :: Blocks -> State BState (Layout.Doc Text) #-}
 {-# SPECIALIZE toLayout :: Inlines -> State BState (Layout.Doc Text) #-}
 {-# SPECIALIZE toLayout :: Attr -> State BState (Layout.Doc Text) #-}
@@ -149,12 +158,15 @@ instance ToLayout Attr where
                 then mempty
                 else "{" <> contents <> "}"
        where
-         contents = hsep (map go kvs)
-         go ("id",ident) = literal ("#" <> fromUtf8 ident)
-         go ("class", classes') = hsep $ map (("." <>) . literal)
-                                       $ T.words $ fromUtf8 classes'
-         go (k,v) = literal (fromUtf8 k) <> "=" <>
-                       doubleQuotes (literal (escapeDjot Normal v))
+         contents = hsep (map formatAttrPart kvs)
+
+instance ToLayout BlockAttr where
+  toLayout (BlockAttr (Attr kvs))
+    = pure $ if isEmpty contents
+                then mempty
+                else hang 1 "{" (contents <> "}")
+       where
+         contents = hsep (map formatAttrPart kvs)
 
 instance ToLayout (Node Block) where
   toLayout (Node _pos attr bl) =
@@ -163,15 +175,17 @@ instance ToLayout (Node Block) where
                 Heading{} -> do
                   autoids <- gets autoIds
                   let Attr as = attr
-                  toLayout $ Attr [(k,v) | (k,v) <- as
+                  toLayout $ BlockAttr
+                           $ Attr [(k,v) | (k,v) <- as
                                   , not (k == "id" && v `Set.member` autoids)]
                 Section{} -> do
                   autoids <- gets autoIds
                   let Attr as = attr
-                  toLayout $ Attr [(k,v) | (k,v) <- as
+                  toLayout $ BlockAttr
+                           $ Attr [(k,v) | (k,v) <- as
                                   , not (k == "id" &&
                                          v `Set.member` autoids)]
-                _ -> toLayout attr)
+                _ -> toLayout (BlockAttr attr))
          <*> (($$ blankline) <$> case bl of
                Para ils -> toLayout ils
                Heading lev ils -> do
