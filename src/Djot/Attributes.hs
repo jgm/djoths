@@ -8,7 +8,7 @@ module Djot.Attributes
   , AttrParseResult(..)
   )
 where
-import Data.Char (isAlphaNum, isSpace, isPunctuation)
+import Data.Char (isAlphaNum, isPunctuation)
 import Djot.AST (Attr(..))
 import Djot.Parse
 import Data.ByteString (ByteString)
@@ -177,7 +177,7 @@ attrPartsToAttr = go
    getAttrVal _ = mempty
 
 isNameChar :: Char -> Bool
-isNameChar c = not (isSpace c)
+isNameChar c = not (isWs c)
     && (not (isPunctuation c) || c == ':' || c == '_' || c == '-')
 
 isKeyChar :: Char -> Bool
