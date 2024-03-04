@@ -306,7 +306,9 @@ newtype ReferenceMap =
   deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Data, Generic)
 
 normalizeLabel :: ByteString -> ByteString
-normalizeLabel = B8.unwords . B8.words
+normalizeLabel = B8.unwords . B8.splitWith isWs
+ where
+  isWs c = c == ' ' || c == '\t' || c == '\r' || c == '\n'
 
 insertReference :: ByteString -> (ByteString, Attr) -> ReferenceMap
                 -> ReferenceMap
