@@ -1,5 +1,9 @@
 # Revision history for djot
 
+## 0.1.1.2 -- 2024-03-14
+
+* Fix bug parsing regular paragraphs after list (#4).
+
 ## 0.1.1.1 -- 2024-03-03
 
 * Revert "Djot.Blocks: use ByteString directly in `toIdentifier` (#1)"
