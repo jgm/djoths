@@ -100,3 +100,21 @@ bar</p>
 </section>
 ```
 
+Issue #4
+
+```
+1. one
+2. two
+
+ok
+.
+<ol>
+<li>
+one
+</li>
+<li>
+two
+</li>
+</ol>
+<p>ok</p>
+```

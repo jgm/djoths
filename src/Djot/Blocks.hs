@@ -970,10 +970,12 @@ processLines = do
 
     tip <- getTip
 
-    when (blockContainsBlock (containerSpec tip) == Just Normal) $ do
-      -- add a paragraph container
-      skipMany spaceOrTab
-      blockStart paraSpec
+    case blockContainsBlock (containerSpec tip) of
+      Just bt | bt == Normal || bt == ListItem -> do
+        -- add a paragraph container
+        skipMany spaceOrTab
+        blockStart paraSpec
+      _ -> pure ()
 
   !curline <- sourceLine
   !curcolumn <- sourceColumn
