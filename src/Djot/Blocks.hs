@@ -1017,7 +1017,7 @@ tryContainerStarts = do
         '`' -> blockStart codeBlockSpec
         '{' -> blockStart attrSpec
         '[' -> blockStart referenceDefinitionSpec <|> blockStart footnoteSpec
-        '|' | bt == Normal -> blockStart tableSpec
+        '|' | bt /= CaptionBlock -> blockStart tableSpec
         '^' | bt == CaptionBlock -> blockStart captionSpec
         _ -> blockStart listItemSpec
       True <$ tryContainerStarts) <|> pure False
