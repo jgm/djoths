@@ -1,5 +1,11 @@
 # Revision history for djot
 
+## 0.1.1.3 -- 2024-03-17
+
+* Ensure that tables end when we hit a blank line (#4).
+
+* Fix parsing of table immediately after list (#4).
+
 ## 0.1.1.2 -- 2024-03-14
 
 * Fix bug parsing regular paragraphs after list (#4).
