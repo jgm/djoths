@@ -458,7 +458,12 @@ tableSpec =
   , blockContinue = \container ->
       -- TODO: this is inefficient; we parse the inline contents
       -- twice. Find a better way.
-      (True <$ lookahead pRawTableRow)
+      (True <$
+          -- if we just parsed a blank or caption line,
+          -- we don't allow more table rows:
+          case Seq.viewr (containerText container) of
+              _ Seq.:> c | not (B8.any (=='|') (chunkBytes c)) -> mzero
+              _ -> lookahead pRawTableRow)
       <|> (True <$ followedByBlankLine)
       <|> (True <$ lookahead
                       (skipMany spaceOrTab *> asciiChar '^' *> spaceOrTab))
