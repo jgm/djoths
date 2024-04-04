@@ -6,6 +6,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE CPP #-}
 module Djot.AST
 ( Inline(..),
   Many(..),
@@ -89,6 +90,12 @@ import Data.Data (Data, Typeable)
 import qualified Data.ByteString.Char8 as B8
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift (..))
+#if __GLASGOW_HASKELL__ <= 902 || ! MIN_VERSION_containers(0,6,6)
+-- Old versions of GHC and the containers package don't have @Lift@ instances
+-- for some basic datatypes (@Map@, @Set@, @Seq@) so we import them if
+-- necessary.
+import Instances.TH.Lift
+#endif
 
 -- import Debug.Trace
 
