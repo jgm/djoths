@@ -17,15 +17,24 @@ extra-doc-files:    CHANGELOG.md
 extra-source-files: test/*.test
                     benchmark/m.dj
 
+common deps
+  build-depends:
+    base >= 4.12 && < 5,
+    bytestring >= 0.11.3,
+    text,
+    doclayout
+
 Library
-    build-depends:    base >= 4.12 && < 5,
-                      bytestring >= 0.11.3,
-                      containers,
-                      mtl,
-                      text,
-                      doclayout,
-                      template-haskell,
-                      th-lift-instances
+    import:           deps
+    build-depends:    mtl,
+                      template-haskell
+    if impl(ghc > 9.2)
+      build-depends:
+        containers >= 0.6.6
+    else
+      build-depends:
+        containers,
+        th-lift-instances
     hs-source-dirs:   src
     default-language: Haskell2010
     exposed-modules:  Djot
@@ -40,49 +49,38 @@ Library
     ghc-options: -Wall -O2
 
 executable djoths
+    import:           deps
     main-is:          Main.hs
-    build-depends:    base >= 4.12 && < 5,
-                      djot,
-                      bytestring,
-                      containers,
-                      text,
-                      doclayout
+    build-depends:    djot
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options: -Wall -O2 -rtsopts -threaded
 
 test-suite test-djot
+  import: deps
   type: exitcode-stdio-1.0
   main-is: Main.hs
   hs-source-dirs: test
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-K40K -with-rtsopts=-kc40K
   if impl(ghc >= 8.10)
     ghc-options:      -Wunused-packages
-  build-depends:
-      base >= 4.12 && <5
-    , djot
-    , text
-    , bytestring
-    , directory
-    , filepath
-    , doclayout
-    , tasty
-    , tasty-hunit
-    , tasty-quickcheck
+  build-depends: djot,
+                 directory,
+                 filepath,
+                 tasty,
+                 tasty-hunit,
+                 tasty-quickcheck
   default-language: Haskell2010
 
 benchmark benchmark-djot
+  import:          deps
   type:            exitcode-stdio-1.0
   main-is:         Main.hs
   hs-source-dirs:  benchmark
-  build-depends:
-       djot
-     , base >= 4.9 && < 5
-     , bytestring
-     , directory
-     , filepath
-     , doclayout
-     , tasty-bench
+  build-depends:   djot,
+                   directory,
+                   filepath,
+                   tasty-bench
   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-K10K -with-rtsopts=-kc10K
   if impl(ghc >= 8.10)
     ghc-options:      -Wunused-packages
