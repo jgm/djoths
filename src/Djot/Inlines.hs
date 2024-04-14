@@ -215,6 +215,7 @@ pSymbol = do
   asciiChar ':'
   bs <- byteStringOf $ skipSome (skipSatisfyByte
                                     (\c -> c == '+' || c == '-' ||
+                                           c == '_' ||
                                          (isAscii c && isAlphaNum c)))
   asciiChar ':'
   pure $ symbol bs
