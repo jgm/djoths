@@ -287,6 +287,10 @@ toTable rows = do
            AlignRight -> T.replicate (width + 1) "-" <> ":"
            AlignCenter -> ":" <> T.replicate width "-" <> ":"
            AlignDefault -> T.replicate width "-"
+  let initialSep = case rowContents of
+                     cells@(((BodyCell,al),_):_):_ | al /= AlignDefault
+                       -> mkLines (zipWith toUnderline colwidths cells)
+                     _ -> mempty
   let toRow cells =
          let isHeader = case cells of
                           ((HeadCell,_),_) : _ -> True
@@ -296,7 +300,7 @@ toTable rows = do
             if isHeader
                then mkLines (zipWith toUnderline colwidths cells)
                else mempty
-  pure $ vcat $ map toRow rowContents
+  pure $ initialSep $$ vcat (map toRow rowContents)
 
 toDefinitionListItem :: (Inlines, Blocks) -> State BState (Layout.Doc Text)
 toDefinitionListItem (term, def) = do
