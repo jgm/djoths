@@ -1,5 +1,10 @@
 # Revision history for djot
 
+## 0.1.2.1 -- 2024-06-24
+
+* Djot writer: include separator line in table when the table has
+  non-default alignments but no header (#7).
+
 ## 0.1.2 -- 2024-05-10
 
 * Allow `_` in symbols (see jgm/djot#296).
