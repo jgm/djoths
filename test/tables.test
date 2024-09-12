@@ -123,3 +123,23 @@ determines the alignment for following cells, until the next header.
 </tr>
 </table>
 ```
+
+Indented table:
+
+```
+  | a | b |
+  |---|---|
+  | 1 | 2 |
+.
+<table>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+</table>
+```
+
