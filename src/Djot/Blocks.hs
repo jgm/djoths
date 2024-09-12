@@ -455,18 +455,19 @@ tableSpec =
       lookahead pRawTableRow
       ind <- sourceColumn
       addContainer tableSpec ind (TableData mempty)
-  , blockContinue = \container ->
+  , blockContinue = \container -> do
+      skipMany spaceOrTab
       -- TODO: this is inefficient; we parse the inline contents
       -- twice. Find a better way.
-      (True <$
-          -- if we just parsed a blank or caption line,
-          -- we don't allow more table rows:
-          case Seq.viewr (containerText container) of
-              _ Seq.:> c | not (B8.any (=='|') (chunkBytes c)) -> mzero
-              _ -> lookahead pRawTableRow)
+      let parsedBlankOrCaption =
+            case Seq.viewr (containerText container) of
+              _ Seq.:> c -> not (B8.any (=='|') (chunkBytes c))
+              Seq.EmptyR -> False
+      (True <$ -- if we just parsed a blank or caption line, no more table rows
+          (guard (not parsedBlankOrCaption) <* lookahead pRawTableRow))
       <|> (True <$ followedByBlankLine)
-      <|> (True <$ lookahead
-                      (skipMany spaceOrTab *> asciiChar '^' *> spaceOrTab))
+      <|> (True <$
+            (skipMany spaceOrTab *> lookahead (asciiChar '^' *> spaceOrTab)))
       <|> (True <$ guard (not (null (containerChildren container))))
   , blockContainsBlock = Just CaptionBlock
   , blockContainsLines = True
