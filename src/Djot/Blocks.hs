@@ -118,6 +118,7 @@ listItemSpec =
                 case blockName (containerSpec tip) of
                   "Para" -> void pListStart
                   _ -> pure ())
+        <|> True <$ followedByBlankLine
         <|> pure False
   , blockContainsBlock = Just Normal
   , blockContainsLines = False

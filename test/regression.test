@@ -164,3 +164,29 @@ two
 </tr>
 </table>
 ```
+
+Issue jgm/djoths#10:
+
+```
+1. Hello
+
+   ::: hi
+   inside list?
+   :::
+
+   ::: hi
+   inside list?
+   :::
+.
+<ol>
+<li>
+<p>Hello</p>
+<div class="hi">
+<p>inside list?</p>
+</div>
+<div class="hi">
+<p>inside list?</p>
+</div>
+</li>
+</ol>
+```
