@@ -1,5 +1,11 @@
 # Revision history for djot
 
+## 0.1.2.2 -- 2024-10-04
+
+* Allow list items with blank lines between divs (#10).
+
+* Fix parsing of indented tables (#8).
+
 ## 0.1.2.1 -- 2024-06-24
 
 * Djot writer: include separator line in table when the table has
