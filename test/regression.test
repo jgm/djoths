@@ -190,3 +190,20 @@ Issue jgm/djoths#10:
 </li>
 </ol>
 ```
+
+Issue #11:
+
+```
+> ```js
+> {
+>   "A": 1
+> }
+> ```
+.
+<blockquote>
+<pre><code class="language-js">{
+  "A": 1
+}
+</code></pre>
+</blockquote>
+```

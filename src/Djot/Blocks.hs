@@ -438,7 +438,6 @@ blockQuoteSpec =
       skipMany spaceOrTab
       asciiChar '>'
       followedByWhitespace
-      skipMany spaceOrTab
       pure True
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
