@@ -1,5 +1,9 @@
 # Revision history for djot
 
+## 0.1.2.3 -- 2025-09-27
+
+* Fix swallowing of indentation in code under blockquote (#11).
+
 ## 0.1.2.2 -- 2024-10-04
 
 * Allow list items with blank lines between divs (#10).

@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               djot
-version:            0.1.2.2
+version:            0.1.2.3
 synopsis:           Parser and renderer for djot light markup syntax.
 description:        Djot (<https://djot.net>) is a light markup language.
                     This package provides a data structure to represent
@@ -16,6 +16,10 @@ build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 extra-source-files: test/*.test
                     benchmark/m.dj
+
+Source-repository head
+  type:              git
+  location:          https://github.com/jgm/djoths.git
 
 common deps
   build-depends:
