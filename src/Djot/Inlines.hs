@@ -8,7 +8,7 @@ module Djot.Inlines
   )
 where
 
-import Data.Char (isAscii, isLetter, isAlphaNum, isSymbol, isPunctuation)
+import Data.Char (isAscii, isAlphaNum, isSymbol, isPunctuation)
 import Control.Monad (guard, when, mzero)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
@@ -480,8 +480,8 @@ pCloseSingleQuote = do
   lbrace <- (True <$ asciiChar '{') <|> pure False
   asciiChar '\''
   rbrace <- (True <$ asciiChar '}') <|> pure False
-  letterAfter <- (True <$ lookahead (satisfy isLetter)) <|> pure False
-  guard $ not lbrace && (rbrace || not (whitespaceBefore || letterAfter))
+  alphaNumAfter <- (True <$ lookahead (satisfy isAlphaNum)) <|> pure False
+  guard $ not lbrace && (rbrace || not (whitespaceBefore || alphaNumAfter))
 
 pSingleQuote :: P Inlines
 pSingleQuote = (do
