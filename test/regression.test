@@ -207,3 +207,11 @@ Issue #11:
 </code></pre>
 </blockquote>
 ```
+
+Issue #12:
+
+```
+I like the Lemon Jelly album titled '}64–'}95.
+.
+<p>I like the Lemon Jelly album titled ’64–’95.</p>
+```

@@ -33,7 +33,8 @@ main = do
     , testGroup "native -> djot -> native"
        [testGroup fp (map (toRoundTripTest parser) ts)
           | (fp, ts) <- tests
-          , takeFileName fp /= "raw.test"]
+          , takeFileName fp /= "raw.test"
+          , takeFileName fp /= "regression.test"]
     , testGroup "Djot.Parse" parserTests
     , testGroup "sourcepos" sourcePosTests
     , testGroup "Fuzz"

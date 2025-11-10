@@ -489,7 +489,7 @@ pSingleQuote = (do
   contents <- mconcat <$> many (fails pCloseSingleQuote *> pInline)
   (singleQuoted contents <$ pCloseSingleQuote)
     <|> pure (closeSingleQuote <> contents))
- <|> (closeSingleQuote <$ asciiChar '\'')
+ <|> (closeSingleQuote <$ (pCloseSingleQuote <|> asciiChar '\''))
 
 closeSingleQuote :: Inlines
 closeSingleQuote = str "\226\128\153" -- utf8 0x2019
