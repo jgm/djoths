@@ -1,5 +1,11 @@
 # Revision history for djot
 
+## 0.1.2.4 -- 2025-11-30
+
+* Ensure that `'95--'96` doesn't get parsed as singlequoted.
+
+* Properly handle bare `'}` for right single-quote (#12).
+
 ## 0.1.2.3 -- 2025-09-27
 
 * Fix swallowing of indentation in code under blockquote (#11).
