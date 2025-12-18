@@ -960,7 +960,6 @@ checkContinuations = go . reverse . NonEmpty.toList
                           replicateM_ (length (c:cs)) closeCurrentContainer
 
 
-{-# INLINE processLines #-}
 processLines :: P ()
 processLines = do
   -- check continuations for open containers and close any that don't match
@@ -1041,7 +1040,6 @@ finalizeDocument = do
     _ :| [] -> closeCurrentContainer >> finalize <$> getTip
     _ -> closeCurrentContainer >> finalizeDocument
 
-{-# INLINE closeCurrentContainer #-}
 -- | Close container and add to parent container.
 closeCurrentContainer :: P ()
 closeCurrentContainer = do
@@ -1067,12 +1065,10 @@ closeCurrentContainer = do
                      c{ containerEndLine = psLastLine st
                       , containerEndColumn = psLastColumnPrevLine st } :| [] }
 
-{-# INLINE modifyContainers #-}
 modifyContainers :: (NonEmpty Container -> NonEmpty Container) -> P ()
 modifyContainers f =
   updateState $ \st -> st{ psContainerStack = f (psContainerStack st) }
 
-{-# INLINE addContainer #-}
 addContainer :: BlockSpec -> Int -> ContainerData -> P ()
 addContainer bspec curcol bdata = do
   curline <- sourceLine
@@ -1128,7 +1124,6 @@ gobbleSpaceToIndent indent = do
   when (curindent < indent) $
      optional_ (spaceOrTab *> gobbleSpaceToIndent indent)
 
-{-# INLINE getTip #-}
 -- Get tip of container stack.
 getTip :: P Container
 getTip = NonEmpty.head . psContainerStack <$> getState
