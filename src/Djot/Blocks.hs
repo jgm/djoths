@@ -43,6 +43,7 @@ parseDoc opts bs = do
                         , psReferenceMap = mempty
                         , psAutoReferenceMap = mempty
                         , psNoteMap = mempty
+                        , psLastAttributeLine = 0
                         , psAttributes = mempty
                         , psAttrParserState = Nothing
                         , psIds = mempty
@@ -748,7 +749,9 @@ attrSpec =
       case parseAttributes Nothing bs of
         Done (attr, off)
           | B8.all isWs (B8.drop off bs) -> do
-             updateState $ \st -> st{ psAttributes = psAttributes st <> attr }
+             linenum <- sourceLine
+             updateState $ \st -> st{ psAttributes = psAttributes st <> attr
+                                    , psLastAttributeLine = linenum - 1 }
              pure container
           | otherwise -> do
              ils <- parseTextLines container
@@ -914,6 +917,7 @@ data PState =
   , psReferenceMap :: ReferenceMap
   , psAutoReferenceMap :: ReferenceMap
   , psNoteMap :: NoteMap
+  , psLastAttributeLine :: Int
   , psAttributes :: Attr
   , psAttrParserState :: Maybe AttrParserState
   , psIds :: Set ByteString
@@ -1072,7 +1076,10 @@ modifyContainers f =
 addContainer :: BlockSpec -> Int -> ContainerData -> P ()
 addContainer bspec curcol bdata = do
   curline <- sourceLine
-  attr <- psAttributes <$> getState
+  lastAttrLine <- psLastAttributeLine <$> getState
+  attr <- if curline == lastAttrLine + 1
+             then psAttributes <$> getState
+             else pure mempty  -- ignore attributes with intervening blank line
   opts <- psParseOptions <$> getState
   let newcontainer = emptyContainer { containerSpec = bspec
                                     , containerStartLine = curline

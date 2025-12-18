@@ -215,3 +215,14 @@ I like the Lemon Jelly album titled '}64–'}95.
 .
 <p>I like the Lemon Jelly album titled ’64–’95.</p>
 ```
+
+https://github.com/jgm/djot.js/issues/118
+
+```
+{#ident
+  .class}
+
+Para
+.
+<p>Para</p>
+```
