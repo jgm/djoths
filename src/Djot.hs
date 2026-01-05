@@ -7,6 +7,7 @@ module Djot
   , SourcePosOption(..)
   , RenderOptions(..)
   , module Djot.AST
+  , version
   )
 where
 
@@ -15,3 +16,4 @@ import Djot.Blocks (parseDoc, toIdentifier)
 import Djot.Html (renderHtml)
 import Djot.Djot (renderDjot)
 import Djot.AST
+import Paths_djot (version)

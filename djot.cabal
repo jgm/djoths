@@ -44,6 +44,7 @@ Library
                       Djot.Blocks
                       Djot.Html
                       Djot.Djot
+    other-modules:    Paths_djot
     ghc-options: -Wall -O2
 
 executable djoths
