@@ -5,13 +5,14 @@ module Main where
 import qualified Data.ByteString as B
 import Data.ByteString.Builder (hPutBuilder)
 import Djot ( ParseOptions(..), RenderOptions(..), SourcePosOption(..),
-              parseDoc, renderHtml, renderDjot )
+              parseDoc, renderHtml, renderDjot, version )
 import System.Environment (getArgs)
 import System.IO (stderr, stdout, hPutStrLn)
 import System.Exit ( ExitCode(ExitFailure), exitWith, exitSuccess )
 import Text.DocLayout (render)
 import Text.Read (readMaybe)
 import qualified Data.Text.IO as TIO
+import Data.Version (showVersion)
 
 data OutputFormat = Html | Djot | Ast
   deriving (Eq, Show)
@@ -60,7 +61,11 @@ parseOpts = go Opts{ format = Html, files = [], wrap = Preserve, columns = 72,
      putStrLn "  --wrap auto|preserve*|none"
      putStrLn "  --columns NUMBER"
      putStrLn "  --sourcepos none*|block|all"
+     putStrLn "  --version"
      putStrLn "  --help"
+     exitSuccess
+   go _opts ("--version" : _) = do
+     putStrLn $ "djot " <> showVersion version
      exitSuccess
    go opts (xs@('-':_) : as) =
      case break (== '=') xs of  -- support e.g. '--columns=33'
