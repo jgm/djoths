@@ -226,3 +226,32 @@ Para
 .
 <p>Para</p>
 ```
+
+Issue jgm/djoths#14 - nested sections with list-only content:
+
+```
+## Section 1
+
+- item
+
+## Section 2
+
+- item
+.
+<section id="Section-1">
+<h2>Section 1</h2>
+<ul>
+<li>
+item
+</li>
+</ul>
+</section>
+<section id="Section-2">
+<h2>Section 2</h2>
+<ul>
+<li>
+item
+</li>
+</ul>
+</section>
+```

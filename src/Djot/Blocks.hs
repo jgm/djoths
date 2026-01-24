@@ -1132,10 +1132,13 @@ closeContainingSections :: Int -> P ()
 closeContainingSections lev = do
   tip <- getTip
   case containerData tip of
-    SectionData lev' _ | lev' >= lev ->
-      closeCurrentContainer >>
-      closeContainingSections lev
-    _ -> pure ()
+    SectionData lev' _
+      | lev' >= lev -> closeCurrentContainer >> closeContainingSections lev
+      | otherwise -> pure ()  -- section with lower level, stop
+    _ | blockContainsBlock (containerSpec tip) /= Just Normal ->
+        -- close containers that can't directly contain sections (e.g., List)
+        closeCurrentContainer >> closeContainingSections lev
+    _ -> pure ()  -- container can hold sections, stop here
 
 -- TODO avoid detour through String
 toIdentifier :: ByteString -> ByteString
