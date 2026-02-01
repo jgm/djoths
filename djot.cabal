@@ -45,6 +45,7 @@ Library
                       Djot.Html
                       Djot.Djot
     other-modules:    Paths_djot
+    autogen-modules:  Paths_djot
     ghc-options: -Wall -O2
 
 executable djoths
