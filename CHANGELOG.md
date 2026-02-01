@@ -1,5 +1,22 @@
 # Revision history for djot
 
+## 0.1.3 -- 2026-02-01
+
+* Fix nested sections bug when sections contain only lists (#14).
+  When a section contained only list elements (no paragraphs),
+  subsequent headings at the same level were incorrectly nested
+  inside the previous section instead of being siblings.
+
+* CLI: add `--version` option (#13).
+
+* Export version from Djot module. [API change]
+
+* Remove some INLINE pragmas. These don't make a measurable
+  difference in benchmarks.
+
+* There can't be a blank line btw block attrs and block.
+  Cf. https://github.com/jgm/djot.js/issues/118
+
 ## 0.1.2.4 -- 2025-11-30
 
 * Ensure that `'95--'96` doesn't get parsed as singlequoted.
