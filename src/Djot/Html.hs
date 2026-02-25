@@ -273,7 +273,7 @@ instance ToBuilder (Node Inline) where
                    Reference label -> do
                      rm <- gets referenceMap
                      case lookupReference label rm of
-                       Nothing -> pure $ Attr [("href", "")]
+                       Nothing -> pure mempty
                        Just (u, Attr as) -> pure $ Attr (("href",u):as)
         inTags "a" pos (attr' <> attr) <$> toBuilder ils
       Image ils target -> do
