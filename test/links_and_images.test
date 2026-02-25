@@ -87,7 +87,7 @@ If the reference isn't found, we get an empty link.
 [link][a and
 b]
 .
-<p><a href="">link</a></p>
+<p><a>link</a></p>
 ```
 
 Reference definitions can't have line breaks in the key:
@@ -99,7 +99,7 @@ b]
 [a and
 b]: url
 .
-<p><a href="">link</a></p>
+<p><a>link</a></p>
 <p>[a and
 b]: url</p>
 ```
@@ -111,7 +111,7 @@ No case normalization is done on reference definitions:
 
 [link]: /url
 .
-<p><a href="">Link</a></p>
+<p><a>Link</a></p>
 ```
 
 Attributes on reference definitions get transferred to
@@ -140,7 +140,7 @@ Attributes on the link override those on references:
 ```
 [link _and_ link][]
 
-[link _and_ link]: url
+[link and link]: url
 .
 <p><a href="url">link <em>and</em> link</a></p>
 ```
@@ -174,19 +174,32 @@ b*)
 <p><a href="hello *ab*">closed</a></p>
 ```
 
-Here the strong takes precedence over the link because it
-starts first:
+Here the link takes precedence because the star inside the
+destination is protected from closing emphasis:
 ```
 *[closed](hello*)
 .
-<p><strong>[closed](hello</strong>)</p>
+<p>*<a href="hello*">closed</a></p>
 ```
 
-Avoid this with a backslash escape:
+This also works with a backslash escape:
 ```
 *[closed](hello\*)
 .
 <p>*<a href="hello*">closed</a></p>
+```
+
+Underscores in link destinations don't interfere with emphasis:
+```
+_[link](http://example.com?foo_bar=1), more text_
+.
+<p><em><a href="http://example.com?foo_bar=1">link</a>, more text</em></p>
+```
+
+```
+_hello [link](a_b) world_
+.
+<p><em>hello <a href="a_b">link</a> world</em></p>
 ```
 
 Link in link?
