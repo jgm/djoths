@@ -360,12 +360,12 @@ pBracketed = do
 pImage :: P Inlines
 pImage = do
   asciiChar '!'
-  (res, raw) <- withByteString pBracketed
+  res <- pBracketed
   case res of
     Left ils -> pure (str "!" <> ils)
     Right ils ->
             ((str "!" <>) <$> pAddAttributes (span_ ils))
-        <|> (image ils <$> (pDestination <|> pReference raw))
+        <|> (image ils <$> (pDestination <|> pReference ils))
         <|> pure (str "![" <> ils <> str "]")
 
 pAutolink :: P Inlines
@@ -381,12 +381,12 @@ pAutolink = do
 
 pLinkOrSpan :: P Inlines
 pLinkOrSpan = do
-  (res, raw) <- withByteString pBracketed
+  res <- pBracketed
   case res of
     Left ils -> pure ils
     Right ils ->
             (span_ ils <$ lookahead (asciiChar '{'))
-        <|> (link ils <$> (pDestination <|> pReference raw))
+        <|> (link ils <$> (pDestination <|> pReference ils))
         <|> pure (str "[" <> ils <> str "]")
 
 -- We allow balanced pairs of parens inside.
@@ -416,16 +416,16 @@ pInBalancedParens nestlevel =
             <|> ((nestlevel - 1) <$ asciiChar ')')
        pInBalancedParens lev
 
-pReference :: ByteString -> P Target
-pReference rawDescription = do
+pReference :: Inlines -> P Target
+pReference description = do
   asciiChar '['
   bs <- byteStringOf $ pAtMost 400 $ skipSatisfyByte
            (\c -> c /= '[' && c /= ']')
   asciiChar ']'
   let label = normalizeLabel $
               if B.null bs
-                 then B.drop 1 $ B.dropEnd 1
-                               $ B8.filter (/= '\n') rawDescription
+                 then B8.filter (/= '\n')
+                      $ inlinesToByteString description
                  else bs
   pure $ Reference label
 
