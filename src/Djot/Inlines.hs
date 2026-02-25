@@ -392,9 +392,12 @@ pLinkOrSpan = do
 -- We allow balanced pairs of parens inside.
 pDestination :: P Target
 pDestination = do
+  oldActiveDelims <- activeDelims <$> getState
+  updateState $ \st -> st{ activeDelims = mempty }
   asciiChar '('
   res <- byteStringOf $ pInBalancedParens 0
   asciiChar ')'
+  updateState $ \st -> st{ activeDelims = oldActiveDelims }
   pure $ Direct (snd (handleEscapesAndNewlines res))
  where
   handleEscapesAndNewlines = B8.foldl' go (False, mempty)
