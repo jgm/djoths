@@ -1,5 +1,18 @@
 # Revision history for djot
 
+## 0.1.4 -- 2026-03-17
+
+  * Ensure that delims aren't matched in link destinations (#15).
+
+  * Change behavior for empty link label. To match djot.js; we now
+    take the string content (rather than raw source) of the link
+    description, so e.g. emphasis is ignored.
+
+  * Html renderer: don't emit empty href for undefined ref link.
+    This conforms to djot.js behavior, expected in tests.
+
+  * Update links_and_images test from reference impl: djot.js.
+
 ## 0.1.3 -- 2026-02-01
 
 * Fix nested sections bug when sections contain only lists (#14).
