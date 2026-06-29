@@ -427,8 +427,7 @@ pReference description = do
   asciiChar ']'
   let label = normalizeLabel $
               if B.null bs
-                 then B8.filter (/= '\n')
-                      $ inlinesToByteString description
+                 then inlinesToByteString description
                  else bs
   pure $ Reference label
 

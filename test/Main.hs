@@ -103,7 +103,7 @@ toRoundTripTest parser st =
           native = either (\_ -> mempty) id $ parser (djot st)
           expected = native
           ropts = RenderOptions{ preserveSoftBreaks = True }
-          renderedDjot = encodeUtf8 . TL.fromStrict $ render (Just 62) $
+          renderedDjot = encodeUtf8 . TL.fromStrict $ render (Just 78) $
                            renderDjot ropts native
           actual = either (\_ -> mempty) id $ parser renderedDjot
           lbsToStr = TL.unpack . fromUtf8
