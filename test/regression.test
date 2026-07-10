@@ -270,3 +270,11 @@ Server Using Shared Memory</a></p>
 <h1>An Adaptive Preforking Server Using Shared Memory</h1>
 </section>
 ```
+
+Issue #17
+
+```
+the `$\` variable
+.
+<p>the <code>$\</code> variable</p>
+```

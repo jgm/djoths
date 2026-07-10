@@ -302,8 +302,7 @@ pVerbatim :: P Inlines
 pVerbatim = do
   numticks <- pTicks
   let ender = pTicks >>= guard . (== numticks)
-  let content = skipSome (skipSatisfyByte (\c -> c /= '`' && c /= '\\')) <|>
-                 (asciiChar '\\' <* anyChar) <|>
+  let content = skipSome (skipSatisfyByte (/= '`')) <|>
                  (fails ender *> skipSome (asciiChar '`'))
   bs <- trimSpaces <$> byteStringOf (skipMany content) <* (ender <|> eof)
   (rawInline <$> pRawAttribute <*> pure bs) <|> pure (verbatim bs)
