@@ -1,5 +1,12 @@
 # Revision history for djot
 
+## 0.1.4.1 -- 2026-07-21
+
+  * Fix bug in verbatim parsing (#17). We were wrongly allowing
+    backslash escapes for backticks.
+
+  * Fix resolution of reference links with newlines (#16).
+
 ## 0.1.4 -- 2026-03-17
 
   * Ensure that delims aren't matched in link destinations (#15).
