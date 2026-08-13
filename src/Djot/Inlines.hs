@@ -338,8 +338,7 @@ pFootnoteReference :: P Inlines
 pFootnoteReference = do
   asciiChar '['
   asciiChar '^'
-  label <- byteStringOf $ skipMany $
-             skipSatisfyByte (\c -> c /= ']' && not (isWs c))
+  label <- byteStringOf $ skipMany $ skipSatisfyByte (\c -> c /= ']')
   asciiChar ']'
   pure $ footnoteReference label
 

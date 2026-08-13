@@ -19,7 +19,7 @@ import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Builder (Builder, byteString, word8, intDec)
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.List (sort)
 import Control.Monad.State
 import qualified Data.Foldable as F
@@ -310,9 +310,10 @@ instance ToBuilder (Node Inline) where
                                              M.insert label rendered (renderedNotes st) }
                    pure num
         let num' = B8.pack $ show num
-        pure $ inTags "a" pos (Attr [("id", "fnref" <> num'),
-                                     ("href", "#fn" <> num'),
-                                     ("role", "doc-noteref")] <> attr) $
+        pure $ inTags "a" pos (Attr ([("id", "fnref" <> num')
+                                       | isNothing (M.lookup label noterefs)] ++
+                                     [("href", "#fn" <> num'),
+                                      ("role", "doc-noteref")]) <> attr) $
                  inTags "sup" pos mempty (escapeHtml num')
 
 {-# INLINE inTags #-}
