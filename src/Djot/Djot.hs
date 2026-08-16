@@ -11,7 +11,7 @@ where
 
 import Djot.AST
 import Djot.Options (RenderOptions(..))
-import Data.Char (ord, chr)
+import Data.Char (ord, chr, isSpace)
 import Djot.Parse (utf8ToStr)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
@@ -247,7 +247,14 @@ instance ToLayout (Node Block) where
                  pure $ body $+$ caption
                RawBlock (Format "djot") bs ->
                  pure $ literal (fromUtf8 bs)
-               RawBlock _ _ -> pure mempty)
+               RawBlock (Format f) bs
+                 | isSaneFormat f -> do
+                   let numticks = getFenceLength bs
+                   let ticks = literal $ T.replicate numticks "`"
+                   pure $ (ticks <> literal (fromUtf8 ("=" <> f)))
+                        $$ literal (fromUtf8 bs)
+                        $$ ticks
+                 | otherwise -> pure mempty)
          <* modify' (\st -> st{ afterSpace = True
                               -- Handle case of one bullet list right after
                               -- another; we need to change the bullet to
@@ -415,7 +422,10 @@ instance ToLayout (Node Inline) where
           EmailLink email -> pure $ "<" <> literal (fromUtf8 email) <> ">"
           UrlLink url -> pure $ "<" <> literal (fromUtf8 url) <> ">"
           RawInline (Format "djot") bs -> pure $ literal (fromUtf8 bs)
-          RawInline _ _ -> pure mempty
+          RawInline (Format f) bs
+            | isSaneFormat f ->
+                pure $ toVerbatimSpan bs <> literal (fromUtf8 ("{=" <> f <> "}"))
+            | otherwise -> pure mempty
           FootnoteReference label -> do
             order <- gets noteOrder
             case M.lookup label order of
@@ -498,3 +508,5 @@ getFenceLength bs = max 3 (longesttickline + 1)
           [] -> 0
           ls -> maximum $ map (B8.length . B8.takeWhile (=='`')) ls
 
+isSaneFormat :: ByteString -> Bool
+isSaneFormat bs = not (B8.any (\c -> isSpace c || c == '}' || c == '`') bs)
