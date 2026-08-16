@@ -230,11 +230,7 @@ instance ToLayout (Node Block) where
                     then pure ">"
                     else prefixed "> " <$> toLayout bls
                CodeBlock lang bs -> do
-                 let longesttickline =
-                       case B8.lines bs of
-                         [] -> 0
-                         ls -> maximum $ map (B8.length . B8.takeWhile (=='`')) ls
-                 let numticks = max 3 longesttickline
+                 let numticks = getFenceLength bs
                  let ticks = literal $ T.replicate numticks "`"
                  let lang' = if lang == mempty
                                 then mempty
@@ -493,3 +489,12 @@ computeDivNestingLevel =
    go (Node _pos _ (Div bls')) n =
      max (n + 1) (foldr go (n + 1) (unMany bls'))
    go _ n = n
+
+getFenceLength :: ByteString -> Int
+getFenceLength bs = max 3 (longesttickline + 1)
+  where
+    longesttickline =
+        case B8.lines bs of
+          [] -> 0
+          ls -> maximum $ map (B8.length . B8.takeWhile (=='`')) ls
+
