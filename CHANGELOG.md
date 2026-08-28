@@ -1,5 +1,17 @@
 # Revision history for djot
 
+## 0.1.4.2 -- 2026-08-27
+
+  * Djot renderer: emit raw blocks/inlines for formats other than djot (#18).
+
+  * Djot renderer: Fix calculation of fence length. We needed to add
+    one to the length of the biggest backtick string in the code.
+
+  * Fix two bugs in footnote handling:
+
+    - Allow spaces and newlines in footnote references, as with djot.js.
+    - Don't put a duplicate id on a second reference to same note.
+
 ## 0.1.4.1 -- 2026-07-21
 
   * Fix bug in verbatim parsing (#17). We were wrongly allowing
