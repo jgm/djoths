@@ -36,23 +36,27 @@ import Data.Typeable (Typeable)
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
 parseDoc opts bs = do
-  case parse pDoc PState{ psParseOptions = opts
-                        , psContainerStack =
-                            NonEmpty.fromList
-                             [emptyContainer{ containerSpec = docSpec }]
-                        , psReferenceMap = mempty
-                        , psAutoReferenceMap = mempty
-                        , psNoteMap = mempty
-                        , psLastAttributeLine = 0
-                        , psAttributes = mempty
-                        , psAttrParserState = Nothing
-                        , psIds = mempty
-                        , psAutoIds = mempty
-                        , psLastColumnPrevLine = 0
-                        , psLastLine = 1
-                        } [Chunk{ chunkLine = 1, chunkColumn = 1, chunkBytes = bs }] of
-    Just doc -> Right doc
-    Nothing -> Left "Parse failure."
+  case parse ((,) <$> pDoc <*> (psParseError <$> getState))
+             PState{ psParseOptions = opts
+                   , psContainerStack =
+                       NonEmpty.fromList
+                        [emptyContainer{ containerSpec = docSpec }]
+                   , psReferenceMap = mempty
+                   , psAutoReferenceMap = mempty
+                   , psNoteMap = mempty
+                   , psLastAttributeLine = 0
+                   , psAttributes = mempty
+                   , psAttrParserState = Nothing
+                   , psIds = mempty
+                   , psAutoIds = mempty
+                   , psLastColumnPrevLine = 0
+                   , psLastLine = 1
+                   , psParseError = Nothing
+                   } [Chunk{ chunkLine = 1, chunkColumn = 1, chunkBytes = bs }] of
+    Just (_, Just err) -> Left err
+    Just (doc, Nothing) -> Right doc
+    Nothing -> Left "Parse failure. The djot block parser should accept any\
+                    \ input, so this is a bug: please report it."
 
 data BlockType =
   Normal | ListItem | CaptionBlock | Document
@@ -858,7 +862,12 @@ paraSpec =
 parseTextLines :: Container -> P Inlines
 parseTextLines cont = do
   opts <- psParseOptions <$> getState
-  either error pure . parseInlines opts $ containerText cont
+  case parseInlines opts (containerText cont) of
+    Right ils -> pure ils
+    Left msg -> do  -- record error; parseDoc will return Left
+      updateState $ \st ->
+        st{ psParseError = psParseError st <|> Just msg }
+      pure mempty
 
 emptyContainer :: Container
 emptyContainer =
@@ -925,6 +934,7 @@ data PState =
   , psAutoIds :: Set ByteString
   , psLastColumnPrevLine :: Int
   , psLastLine :: Int
+  , psParseError :: Maybe String
   }
 
 type P = Parser PState
