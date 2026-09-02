@@ -35,6 +35,7 @@ main = do
           | (fp, ts) <- tests
           , takeFileName fp /= "raw.test"]
     , testGroup "Djot.Parse" parserTests
+    , testGroup "Djot.AST" astTests
     , testGroup "djot writer" writerTests
     , testGroup "sourcepos" sourcePosTests
     , testGroup "Fuzz"
@@ -53,6 +54,15 @@ parserTests =
          (toChunks $ strToUtf8 "ǎ老bc") @?= Just '老')
   , testProperty "UTF8 conversion round-trips"
       (\s -> utf8ToStr (strToUtf8 s) == s)
+  ]
+
+astTests :: [TestTree]
+astTests =
+  [ testCase "NoPos is an identity for <>" $ do
+      Pos 1 1 2 5 <> NoPos @?= Pos 1 1 2 5
+      NoPos <> Pos 1 1 2 5 @?= Pos 1 1 2 5
+  , testCase "<> on Pos spans both arguments" $
+      Pos 1 1 1 4 <> Pos 2 1 2 7 @?= Pos 1 1 2 7
   ]
 
 writerTests :: [TestTree]

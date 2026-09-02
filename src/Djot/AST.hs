@@ -116,11 +116,13 @@ integrate (k,v) kvs =
 data Pos = NoPos | Pos Int Int Int Int -- start line, start col, end line, end col
   deriving (Show, Eq, Ord, Typeable, Data, Generic, Lift)
 
+-- | @p1 <> p2@ spans from the start of @p1@ to the end of @p2@.
+-- 'NoPos' is an identity.
 instance Semigroup Pos where
   Pos sl1 sc1 _ _ <> Pos _ _ el2 ec2 =
     Pos sl1 sc1 el2 ec2
-  NoPos <> _ = NoPos
-  _ <> NoPos = NoPos
+  NoPos <> x = x
+  x <> NoPos = x
 
 instance Monoid Pos where
   mappend = (<>)
