@@ -338,8 +338,8 @@ addDelims LeftRightParen d = "(" <> d <> ")"
 
 formatNumber :: OrderedListStyle -> Int -> Layout.Doc Text
 formatNumber Decimal n = literal (T.pack (show n))
-formatNumber LetterUpper n = literal (T.singleton (chr (ord 'A' + n - 1)))
-formatNumber LetterLower n = literal (T.singleton (chr (ord 'a' + n - 1)))
+formatNumber LetterUpper n = literal (T.singleton (chr (ord 'A' + (n - 1) `mod` 26)))
+formatNumber LetterLower n = literal (T.singleton (chr (ord 'a' + (n - 1) `mod` 26)))
 formatNumber RomanUpper n = literal $ toRomanNumeral n
 formatNumber RomanLower n = literal $ T.toLower (toRomanNumeral n)
 

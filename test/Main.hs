@@ -35,6 +35,7 @@ main = do
           | (fp, ts) <- tests
           , takeFileName fp /= "raw.test"]
     , testGroup "Djot.Parse" parserTests
+    , testGroup "djot writer" writerTests
     , testGroup "sourcepos" sourcePosTests
     , testGroup "Fuzz"
        [testProperty "parses all inputs"
@@ -52,6 +53,19 @@ parserTests =
          (toChunks $ strToUtf8 "ǎ老bc") @?= Just '老')
   , testProperty "UTF8 conversion round-trips"
       (\s -> utf8ToStr (strToUtf8 s) == s)
+  ]
+
+writerTests :: [TestTree]
+writerTests =
+  [ testCase "letter list style wraps around after 26" $
+      render Nothing (renderDjot RenderOptions{ preserveSoftBreaks = True }
+         mempty{ docBlocks = Djot.AST.orderedList
+                   OrderedListAttributes{ orderedListStyle = LetterUpper
+                                        , orderedListDelim = RightPeriod
+                                        , orderedListStart = 27 }
+                   Tight
+                   [para (str "one"), para (str "two")] })
+        @?= "A. one\nB. two\n"
   ]
 
 sourcePosTests :: [TestTree]
