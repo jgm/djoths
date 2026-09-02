@@ -288,22 +288,25 @@ failed = Parser $ const Nothing
 withByteString :: Parser s a -> Parser s (a, ByteString)
 withByteString pa = Parser $ \st ->
   case runParser pa st of
-    Just (st', x) -> Just (st', (x, B8.take (offset st' - offset st)
-                                    (B8.drop (offset st) (subject st))))
+    Just (st', x) -> Just (st', (x, consumedByteString st st'))
     Nothing -> Nothing
 
 -- | Returns bytestring consumed by parse.
 byteStringOf :: Parser s a -> Parser s ByteString
 byteStringOf pa = Parser $ \st ->
   case runParser pa st of
-    Just (st', _) -> Just (st',
-       case length (chunks st) - length (chunks st') of
-         0 -> B8.take (offset st' - offset st) (B8.drop (offset st) (subject st))
-         n ->
-           B8.drop (offset st) (subject st) <>
-            foldMap chunkBytes (take (n - 1) (chunks st)) <>
-            B8.take (offset st') (subject st'))
+    Just (st', _) -> Just (st', consumedByteString st st')
     Nothing -> Nothing
+
+-- | Bytestring consumed between two parser states.
+consumedByteString :: ParserState s -> ParserState s -> ByteString
+consumedByteString st st' =
+  case length (chunks st) - length (chunks st') of
+    0 -> B8.take (offset st' - offset st) (B8.drop (offset st) (subject st))
+    n ->
+      B8.drop (offset st) (subject st) <>
+       foldMap chunkBytes (take (n - 1) (chunks st)) <>
+       B8.take (offset st') (subject st')
 
 -- | Succeeds if first parser succeeds and second fails, returning
 -- first parser's value.

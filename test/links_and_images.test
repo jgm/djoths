@@ -145,6 +145,18 @@ Attributes on the link override those on references:
 <p><a href="url">link <em>and</em> link</a></p>
 ```
 
+An implicit reference label may span multiple lines:
+
+```
+[link
+text][]
+
+[link text]: url
+.
+<p><a href="url">link
+text</a></p>
+```
+
 ```
 ![basic _image_](url)
 .
