@@ -150,7 +150,7 @@ unsafeAdvanceByte st
                  , line = line st + 1
                  , column = 1 }
          9 -> st{ offset = offset st + 1
-                , column = column st + (4 - (column st `mod` 4)) }
+                , column = column st + (4 - ((column st - 1) `mod` 4)) }
          !w | w < 0x80 -> st{ offset = offset st + 1
                             , column = column st + 1 }
             -- utf8 multibyte: only count byte 1:

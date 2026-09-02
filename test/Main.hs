@@ -82,6 +82,9 @@ sourcePosTests =
      , testCase "attr on last word of merged strs" $
         convert "x y.z{.c}\n" @?=
         "<p data-pos=\"1:1-1:9\"><span data-pos=\"1:1-1:2\">x </span><span data-pos=\"1:3-1:5\" class=\"c\">y.z</span></p>\n"
+     , testCase "tab advances to next tab stop (1-based)" $
+        convert "a\tb *c*\n" @?=
+        "<p data-pos=\"1:1-1:9\"><span data-pos=\"1:1-1:6\">a\tb </span><strong data-pos=\"1:7-1:9\"><span data-pos=\"1:8-1:8\">c</span></strong></p>\n"
      , testCase "no newline at end" $
         convert "foo" @?=
         "<p data-pos=\"1:1-1:3\"><span data-pos=\"1:1-1:3\">foo</span></p>\n"
