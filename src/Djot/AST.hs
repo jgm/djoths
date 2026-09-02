@@ -194,13 +194,13 @@ instance Semigroup Inlines where
                 else
                   let sblen = B8.length (B8.filter (\c -> c < '\128' || c >= '\192') sb)
                       (pos1', pos2') =
-                        case pos1 <> pos2 of
-                            NoPos -> (NoPos, NoPos)
-                            Pos sl sc el ec ->
-                              (Pos sl sc el (ec - sblen),
-                               Pos sl (sc + sblen + 1) el ec)
+                        case (pos1, pos2) of
+                            (Pos sl1 sc1 el1 ec1, Pos _ _ el2 ec2) ->
+                              (Pos sl1 sc1 el1 (ec1 - sblen),
+                               Pos el1 (ec1 - sblen + 1) el2 ec2)
+                            _ -> (NoPos, NoPos)
                   in  Many ((as' Seq.|> Node pos1' mempty (Str sa)
-                        Seq.|> Node pos2' attr (Str (sb <> t))) <> bs')
+                        Seq.|> Node pos2' attr' (Str (sb <> t))) <> bs')
         | attr == attr'
           -> Many (as' <> (Node (pos1 <> pos2) attr (Str (s <> t)) Seq.<| bs'))
       (as' Seq.:> Node pos attr (Str s), Node _ _ HardBreak Seq.:< _)

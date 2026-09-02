@@ -65,6 +65,9 @@ sourcePosTests =
      , testCase "attr after *" $
         convert "*{.foo}\n" @?=
         "<p data-pos=\"1:1-1:7\"><span data-pos=\"1:1-1:1\" class=\"foo\">*</span></p>\n"
+     , testCase "attr on last word of merged strs" $
+        convert "x y.z{.c}\n" @?=
+        "<p data-pos=\"1:1-1:9\"><span data-pos=\"1:1-1:2\">x </span><span data-pos=\"1:3-1:5\" class=\"c\">y.z</span></p>\n"
      , testCase "no newline at end" $
         convert "foo" @?=
         "<p data-pos=\"1:1-1:3\"><span data-pos=\"1:1-1:3\">foo</span></p>\n"

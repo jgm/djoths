@@ -13,6 +13,15 @@ foo привет{.ru}
 <p>(some <span class="attr">text)</span></p>
 ```
 
+The last word may come from several parsed inline elements
+(here, "y", ".", and "z"):
+
+```
+x y.z{.c}
+.
+<p>x <span class="c">y.z</span></p>
+```
+
 ```
 [some text]{.attr}
 .
