@@ -100,6 +100,7 @@ data Chunk =
 data ParserState a =
   ParserState
   { chunks :: [Chunk]
+  , chunkCount :: !Int  -- ^ length of chunks (cached to avoid O(n) length)
   , subject :: !ByteString
   , offset :: !Int
   , line :: !Int
@@ -114,6 +115,7 @@ parse :: Parser s a -> s -> [Chunk] -> Maybe a
 parse parser ustate chunks'' =
   snd <$>
     runParser parser ParserState { chunks = chunks'
+                                 , chunkCount = length chunks'
                                  , subject = bs
                                  , offset = 0
                                  , line = startline
@@ -137,6 +139,7 @@ unsafeAdvanceByte st
   | offset st + 1 >= B.length (subject st)
   , c:cs <- chunks st
    = st{ chunks = cs
+       , chunkCount = chunkCount st - 1
        , subject = chunkBytes c
        , offset = 0
        , line = chunkLine c
@@ -301,7 +304,7 @@ byteStringOf pa = Parser $ \st ->
 -- | Bytestring consumed between two parser states.
 consumedByteString :: ParserState s -> ParserState s -> ByteString
 consumedByteString st st' =
-  case length (chunks st) - length (chunks st') of
+  case chunkCount st - chunkCount st' of
     0 -> B8.take (offset st' - offset st) (B8.drop (offset st) (subject st))
     n ->
       B8.drop (offset st) (subject st) <>
