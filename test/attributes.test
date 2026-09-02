@@ -128,6 +128,31 @@ A paragraph
 <p id="id" class="class" style="color:red">A paragraph</p>
 ```
 
+The block after multiline attributes may itself be indented:
+
+```
+{#id .class
+  style="color:red"}
+  A paragraph
+.
+<p id="id" class="class" style="color:red">A paragraph</p>
+```
+
+A multiline attribute block may be followed by another one:
+
+```
+{.a
+ .b}
+one
+
+{.c
+ .d}
+two
+.
+<p class="a b">one</p>
+<p class="c d">two</p>
+```
+
 If the attribute block can't be parsed as attributes, it will be
 parsed as a regular paragraph:
 

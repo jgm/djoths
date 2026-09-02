@@ -15,7 +15,6 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Char8 ( (!?) )
 import Data.Typeable (Typeable)
-import Data.Maybe (fromMaybe)
 -- import Debug.Trace
 
 
@@ -86,10 +85,12 @@ data AttrPart =
 -- | Resumable parser, returning parts in reverse order.
 parseAttributes :: Maybe AttrParserState -> ByteString -> AttrParseResult
 parseAttributes mbState bs =
-  case go (fromMaybe AttrParserState{ aState = START
-                                    , subject = bs
-                                    , offset = 0
-                                    , parts = [] } mbState) of
+  case go (case mbState of
+             Nothing -> AttrParserState{ aState = START
+                                       , subject = bs
+                                       , offset = 0
+                                       , parts = [] }
+             Just st -> st{ subject = bs, offset = 0 }) of
     AttrParserState{ aState = DONE, parts = attparts, offset = off } ->
       Done (attrPartsToAttr attparts, off)
     AttrParserState{ aState = FAIL, offset = off } -> Failed off

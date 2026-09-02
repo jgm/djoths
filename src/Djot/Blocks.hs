@@ -745,6 +745,7 @@ attrSpec =
   , blockContainsBlock = Nothing
   , blockContainsLines = True
   , blockClose = \container -> do
+      updateState $ \st -> st{ psAttrParserState = Nothing }
       let bs = foldMap chunkBytes $ containerText container
       case parseAttributes Nothing bs of
         Done (attr, off)
