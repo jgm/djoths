@@ -68,32 +68,30 @@ addBackref num (Many bls) =
                  (Link (str (strToUtf8 "\8617\65038"))
                  (Direct ("#fnref" <> num)))
 
-{-# INLINE escapeHtml #-}
 escapeHtml :: ByteString -> Builder
 escapeHtml bs =
-  if hasEscapable bs
-     then B.foldl' go mempty bs
-     else byteString bs
+  case B.uncons rest of
+    Nothing -> byteString before
+    Just (w, rest') -> byteString before <> escaped w <> escapeHtml rest'
  where
-  hasEscapable = B.any (\w -> w == 38 || w == 60 || w == 62)
-  go b 38 = b <> byteString "&amp;"
-  go b 60 = b <> byteString "&lt;"
-  go b 62 = b <> byteString "&gt;"
-  go b c  = b <> word8 c
+  (before, rest) = B.break (\w -> w == 38 || w == 60 || w == 62) bs
+  escaped 38 = byteString "&amp;"
+  escaped 60 = byteString "&lt;"
+  escaped 62 = byteString "&gt;"
+  escaped w  = word8 w  -- unreachable
 
-{-# INLINE escapeHtmlAttribute #-}
 escapeHtmlAttribute :: ByteString -> Builder
 escapeHtmlAttribute bs =
-  if hasEscapable bs
-     then B.foldl' go mempty bs
-     else byteString bs
+  case B.uncons rest of
+    Nothing -> byteString before
+    Just (w, rest') -> byteString before <> escaped w <> escapeHtmlAttribute rest'
  where
-  hasEscapable = B.any (\w -> w == 38 || w == 60 || w == 62 || w == 34)
-  go b 38 = b <> byteString "&amp;"
-  go b 60 = b <> byteString "&lt;"
-  go b 62 = b <> byteString "&gt;"
-  go b 34 = b <> byteString "&quot;"
-  go b c  = b <> word8 c
+  (before, rest) = B.break (\w -> w == 38 || w == 60 || w == 62 || w == 34) bs
+  escaped 38 = byteString "&amp;"
+  escaped 60 = byteString "&lt;"
+  escaped 62 = byteString "&gt;"
+  escaped 34 = byteString "&quot;"
+  escaped w  = word8 w  -- unreachable
 
 data BState =
   BState { noteMap :: NoteMap
