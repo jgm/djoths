@@ -54,6 +54,17 @@ parserTests =
          (toChunks $ strToUtf8 "ǎ老bc") @?= Just '老')
   , testProperty "UTF8 conversion round-trips"
       (\s -> utf8ToStr (strToUtf8 s) == s)
+  , testCase "empty chunk mid-stream does not cause premature EOF"
+      (parse (satisfy (=='a') *> satisfy (=='b')) ()
+         [ Chunk{ chunkBytes = "a", chunkLine = 1, chunkColumn = 0 }
+         , Chunk{ chunkBytes = "", chunkLine = 2, chunkColumn = 0 }
+         , Chunk{ chunkBytes = "b", chunkLine = 3, chunkColumn = 0 }
+         ] @?= Just 'b')
+  , testCase "leading empty chunk does not cause premature EOF"
+      (parse (satisfy (=='a')) ()
+         [ Chunk{ chunkBytes = "", chunkLine = 1, chunkColumn = 0 }
+         , Chunk{ chunkBytes = "a", chunkLine = 2, chunkColumn = 0 }
+         ] @?= Just 'a')
   ]
 
 astTests :: [TestTree]

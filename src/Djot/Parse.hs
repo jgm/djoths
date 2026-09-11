@@ -124,7 +124,7 @@ parse parser ustate chunks'' =
 
  where
    (chunks', bs, startline, startcol) =
-     case chunks'' of
+     case dropWhile (B.null . chunkBytes) chunks'' of
        [] -> ([], mempty, 1, 0)
        (c:cs) -> (cs, chunkBytes c, chunkLine c, chunkColumn c)
 
@@ -137,9 +137,9 @@ unsafeAdvance !n = unsafeAdvance (n - 1) . unsafeAdvanceByte
 unsafeAdvanceByte :: ParserState s -> ParserState s
 unsafeAdvanceByte st
   | offset st + 1 >= B.length (subject st)
-  , c:cs <- chunks st
+  , (emptyChunks, c:cs) <- span (B.null . chunkBytes) (chunks st)
    = st{ chunks = cs
-       , chunkCount = chunkCount st - 1
+       , chunkCount = chunkCount st - (length emptyChunks + 1)
        , subject = chunkBytes c
        , offset = 0
        , line = chunkLine c
