@@ -85,6 +85,12 @@ astTests =
       convertNoPos "a\rb\n" @?= "<p>a\nb</p>\n"
   , testCase "CRLF line ending produces a soft break" $
       convertNoPos "a\r\nb\n" @?= "<p>a\nb</p>\n"
+  , testCase "whitespace runs in quoted attribute values collapse (as in djot.js)" $
+      convertNoPos "{k=\"a  b\"}\npara\n" @?=
+        "<p k=\"a b\">para</p>\n"
+  , testCase "newline in quoted attribute value becomes a space" $
+      convertNoPos "{k=\"a\n b\"}\npara\n" @?=
+        "<p k=\"a b\">para</p>\n"
   ]
 
 convertNoPos :: BL.ByteString -> TL.Text

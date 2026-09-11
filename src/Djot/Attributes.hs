@@ -124,6 +124,8 @@ parseAttributes mbState bs =
            case nextc of
              '"' -> go st{ aState = SCANNING, offset = off + 1 }
              '\\' -> go st{ aState = SCANNING_ESCAPE, offset = off + 1 }
+             -- runs of whitespace (including newlines) collapse to a
+             -- single space, as in djot.js
              c | isWs c ->
                  let st' = skipWhile isWs st
                    in go st'{ parts = AttrValue " " : parts st' }
