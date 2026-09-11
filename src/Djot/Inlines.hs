@@ -372,10 +372,14 @@ pAutolink = do
   res <- byteStringOf $ skipSome $ skipSatisfyByte (\c -> c /= '>' && c /= '<')
   asciiChar '>'
   let url = B8.filter (\c -> c /= '\n' && c /= '\r') res
-  case B8.find (\c -> c == '@' || c == ':' || c == '.') url of
-    Just '@' -> pure $ emailLink url
-    Just _ -> pure $ urlLink url
-    Nothing -> mzero
+  -- an email link contains an '@' preceded by a character other than ':'
+  -- (cf. djot.js, which tests /[^:]@/)
+  let isEmail = or $ B8.zipWith (\a b -> b == '@' && a /= ':') url (B.drop 1 url)
+  if isEmail
+     then pure $ emailLink url
+     else case B8.find (\c -> c == ':' || c == '.') url of
+            Just _ -> pure $ urlLink url
+            Nothing -> mzero
 
 pLinkOrSpan :: P Inlines
 pLinkOrSpan = do

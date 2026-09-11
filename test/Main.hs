@@ -75,6 +75,12 @@ astTests =
   , testCase "auto identifier with smart quotes is valid UTF-8" $
       convertNoPos "# Say \"hi\"\n" @?=
         "<section id=\"Say-\x201Chi\x201D\">\n<h1>Say \x201Chi\x201D</h1>\n</section>\n"
+  , testCase "autolink with dot before @ is an email link" $
+      convertNoPos "<user.name@example.com>\n" @?=
+        "<p><a href=\"mailto:user.name@example.com\">user.name@example.com</a></p>\n"
+  , testCase "autolink with @ only after : is a url link" $
+      convertNoPos "<x:@example.com>\n" @?=
+        "<p><a href=\"x:@example.com\">x:@example.com</a></p>\n"
   ]
 
 convertNoPos :: BL.ByteString -> TL.Text
