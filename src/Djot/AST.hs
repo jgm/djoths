@@ -432,9 +432,9 @@ inlinesToByteString = foldMap go . unMany
         Superscript ils -> inlinesToByteString ils
         Subscript ils -> inlinesToByteString ils
         Quoted SingleQuotes ils ->
-          "\x2018" <> inlinesToByteString ils <> "\x2019"
+          "\226\128\152" <> inlinesToByteString ils <> "\226\128\153"
         Quoted DoubleQuotes ils ->
-          "\x201C" <> inlinesToByteString ils <> "\x201D"
+          "\226\128\156" <> inlinesToByteString ils <> "\226\128\157"
         Verbatim bs -> bs
         Math DisplayMath bs -> "$$" <> bs <> "$$"
         Math InlineMath bs -> "$" <> bs <> "$"
@@ -448,4 +448,4 @@ inlinesToByteString = foldMap go . unMany
         FootnoteReference bs -> "[" <> bs <> "]"
         SoftBreak -> "\n"
         HardBreak -> "\n"
-        NonBreakingSpace -> "\160"
+        NonBreakingSpace -> "\194\160"

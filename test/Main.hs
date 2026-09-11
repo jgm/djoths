@@ -63,7 +63,25 @@ astTests =
       NoPos <> Pos 1 1 2 5 @?= Pos 1 1 2 5
   , testCase "<> on Pos spans both arguments" $
       Pos 1 1 1 4 <> Pos 2 1 2 7 @?= Pos 1 1 2 7
+  , testCase "inlinesToByteString emits valid UTF-8" $ do
+      inlinesToByteString (singleQuoted (str "a")) @?=
+        strToUtf8 "\x2018\&a\x2019"
+      inlinesToByteString (doubleQuoted (str "a")) @?=
+        strToUtf8 "\x201C\&a\x201D"
+      inlinesToByteString nonBreakingSpace @?= strToUtf8 "\xA0"
+  , testCase "image alt text with smart quotes is valid UTF-8" $
+      convertNoPos "![a \"b\" c](url)\n" @?=
+        "<p><img alt=\"a \x201C\&b\x201D c\" src=\"url\"></p>\n"
+  , testCase "auto identifier with smart quotes is valid UTF-8" $
+      convertNoPos "# Say \"hi\"\n" @?=
+        "<section id=\"Say-\x201Chi\x201D\">\n<h1>Say \x201Chi\x201D</h1>\n</section>\n"
   ]
+
+convertNoPos :: BL.ByteString -> TL.Text
+convertNoPos = either mempty (fromUtf8 . toLazyByteString .
+                    renderHtml RenderOptions{ preserveSoftBreaks = True })
+               . parseDoc ParseOptions{ sourcePositions = NoSourcePos }
+               . BL.toStrict
 
 writerTests :: [TestTree]
 writerTests =
