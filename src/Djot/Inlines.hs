@@ -164,6 +164,7 @@ pInline' = do
           '-' -> pHyphens
           '.' -> pEllipses
           '\n' -> pSoftBreak
+          '\r' -> pSoftBreak
           _ -> mzero)
         <|> pSpecial
        ) <|> pWords

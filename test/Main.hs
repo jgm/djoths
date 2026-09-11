@@ -81,6 +81,10 @@ astTests =
   , testCase "autolink with @ only after : is a url link" $
       convertNoPos "<x:@example.com>\n" @?=
         "<p><a href=\"x:@example.com\">x:@example.com</a></p>\n"
+  , testCase "CR-only line ending produces a soft break" $
+      convertNoPos "a\rb\n" @?= "<p>a\nb</p>\n"
+  , testCase "CRLF line ending produces a soft break" $
+      convertNoPos "a\r\nb\n" @?= "<p>a\nb</p>\n"
   ]
 
 convertNoPos :: BL.ByteString -> TL.Text
