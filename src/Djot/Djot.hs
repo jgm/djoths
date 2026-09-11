@@ -12,7 +12,6 @@ where
 import Djot.AST
 import Djot.Options (RenderOptions(..))
 import Data.Char (ord, chr, isSpace)
-import Djot.Parse (utf8ToStr)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Set as Set
@@ -100,7 +99,7 @@ data EscapeContext = Normal
 {-# INLINE escapeDjot #-}
 escapeDjot :: EscapeContext -> ByteString -> Text
 escapeDjot Normal bs
-  | B8.any escapable bs = T.pack. go . utf8ToStr $ bs
+  | B8.any escapable bs = fromUtf8 $ B8.concat $ go bs
   | otherwise = fromUtf8 bs
  where
   escapable c = c == '[' || c == ']' || c == '<' || c == '>' ||
@@ -108,28 +107,39 @@ escapeDjot Normal bs
                 c == '-' || c == '^' || c == '~' ||
                 c == '*' || c == '_' || c == '\''|| c == '"' || c == '.' ||
                 c == '|' || c == '`' || c == '\\'
-  go [] = []
-  go ('$':c:cs)
-    | c == '`' = '\\' : '$' : c : go cs
-    | otherwise = '$' : go (c : cs)
-  go ('-':cs) =
-    case cs of
-      '-':_ -> '\\' : '-' : go cs
-      _ -> '-' : go cs
-  go ('.':cs) =
-    case cs of
-      '.':'.':_ -> '\\' : '.' : go cs
-      _ -> '.' : go cs
-  go (c:':':cs)
-    | c /= ']'
-    , case cs of
-        [] -> True
-        (' ':_) -> True
-        _ -> False
-       = (if escapable c then ('\\' :) else id) $ c : ':' : go cs
-  go (c:cs)
-    | escapable c = '\\' : c : go cs
-    | otherwise = c : go cs
+  -- Copy runs of unescapable bytes wholesale; handle each escapable
+  -- byte with the lookahead (and, for ':', lookbehind) rules below.
+  go s =
+    case B8.findIndex escapable s of
+      Nothing -> [s]
+      Just i ->
+        let c = B8.index s i
+            rest = B8.drop (i + 1) s
+        in (if i == 0 then id else (B8.take i s :)) $
+             handle c (i > 0) rest
+  -- endOrSpace r: the escapable char is at the end or followed by space
+  endOrSpace r = B8.null r || B8.head r == ' '
+  handle c hasPrev rest =
+    case c of
+      '$' | B8.take 1 rest == "`" -> "\\$`" : go (B8.drop 1 rest)
+          | B8.null rest -> ["\\$"]
+          | otherwise -> "$" : go rest
+      '-' | B8.take 1 rest == "-" -> "\\-" : go rest
+          | otherwise -> "-" : go rest
+      '.' | B8.take 2 rest == ".." -> "\\." : go rest
+          | otherwise -> "." : go rest
+      ':' -- unescaped when preceded by an unescapable byte and
+          -- followed by space or end; "::" before space or end gets
+          -- only the first colon escaped
+          | hasPrev, endOrSpace rest -> ":" : go rest
+          | B8.take 1 rest == ":", endOrSpace (B8.drop 1 rest)
+             -> "\\::" : go (B8.drop 1 rest)
+          | otherwise -> "\\:" : go rest
+      _ | c /= ']'
+        , B8.take 1 rest == ":"
+        , endOrSpace (B8.drop 1 rest)
+           -> B8.pack ['\\', c, ':'] : go (B8.drop 1 rest)
+        | otherwise -> B8.pack ['\\', c] : go rest
 
 newtype BlockAttr = BlockAttr Attr
 
@@ -368,11 +378,16 @@ instance ToLayout (Node Inline) where
   toLayout (Node _pos attr il) = (<>)
     <$> case il of
           Str bs -> do
-            let fixSmart = T.replace "\x2014" "---" .
+            let fixSmart
+                  -- all the smart characters are UTF-8 sequences
+                  -- starting with 0xE2:
+                  | B8.elem '\xE2' bs =
+                           T.replace "\x2014" "---" .
                            T.replace "\x2013" "--" .
                            T.replace "\x2026" "..." .
                            T.replace "\x2019" "'" .
                            T.replace "\x201C" "\""
+                  | otherwise = id
             let chunks =
                   T.groupBy
                    (\c d -> (c /= ' ' && d /= ' ') || (c == ' ' && d == ' '))
@@ -380,7 +395,8 @@ instance ToLayout (Node Inline) where
             let toChunk ch
                   = case T.uncons ch of
                       Just (' ', rest)
-                        -> afterBreak "{}" <> space <> literal rest
+                        | T.null rest -> afterBreak "{}" <> space
+                        | otherwise -> afterBreak "{}" <> space <> literal rest
                       _ -> literal ch
             pure $ hcat $ map toChunk chunks
           SoftBreak -> do
