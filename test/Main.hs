@@ -91,6 +91,11 @@ astTests =
   , testCase "newline in quoted attribute value becomes a space" $
       convertNoPos "{k=\"a\n b\"}\npara\n" @?=
         "<p k=\"a b\">para</p>\n"
+  , testCase "reference labels of no more than 400 bytes" $ do
+      let label400 = BL.pack (replicate 400 'x')
+      convertNoPos ("[a][" <> label400 <> "]\n") @?= "<p><a>a</a></p>\n"
+      convertNoPos ("[a][" <> label400 <> "y]\n") @?=
+        "<p>[a][" <> fromUtf8 (label400 <> "y") <> "]</p>\n"
   ]
 
 convertNoPos :: BL.ByteString -> TL.Text

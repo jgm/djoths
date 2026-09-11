@@ -435,7 +435,7 @@ pReference description = do
   pure $ Reference label
 
 pAtMost :: Int -> P () -> P ()
-pAtMost n pa = optional_ (pa *> when (n > 0) (pAtMost ( n - 1 ) pa))
+pAtMost n pa = when (n > 0) $ optional_ (pa *> pAtMost (n - 1) pa)
 
 pOpenDoubleQuote :: P ()
 pOpenDoubleQuote = do
