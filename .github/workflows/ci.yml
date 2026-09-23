@@ -10,22 +10,16 @@ jobs:
       fail-fast: false
       matrix:
         versions:
-          - ghc: '8.10'
-            cabal: 'latest'
-          - ghc: '9.0'
-            cabal: 'latest'
-          - ghc: '9.2'
-            cabal: 'latest'
-          - ghc: '9.4'
-            cabal: 'latest'
           - ghc: '9.6'
             cabal: 'latest'
           - ghc: '9.8'
             cabal: 'latest'
           - ghc: '9.10'
             cabal: 'latest'
+          - ghc: '9.12'
+            cabal: 'latest'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Install cabal/ghc
       run: |
         ghcup install ghc --set ${{ matrix.versions.ghc }}
@@ -33,7 +27,7 @@ jobs:
 
     - name: Cache cabal global package db
       id:   cabal-global
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cabal
@@ -41,20 +35,20 @@ jobs:
 
     - name: Install dependencies
       run: |
-          cabal v2-update && cabal v2-build --dependencies-only --enable-tests --enable-benchmarks
+          cabal update && cabal build --dependencies-only --enable-tests --enable-benchmarks
     - name: Build
       run: |
-          cabal v2-build --enable-tests --enable-benchmarks --ghc-options=-Werror
+          cabal build --enable-tests --enable-benchmarks --ghc-options=-Werror
     - name: Test
       run: |
-          cabal v2-test
+          cabal test
 
   windows:
 
     runs-on: windows-2022
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Install ghc
       run: |
@@ -62,7 +56,7 @@ jobs:
 
     - name: Cache cabal global package db
       id:   cabal-global
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: |
           C:\cabal\store
@@ -70,10 +64,10 @@ jobs:
 
     - name: Install dependencies
       run: |
-          cabal v2-update && cabal v2-build --dependencies-only --enable-tests --enable-benchmarks
+          cabal update && cabal build --dependencies-only --enable-tests --enable-benchmarks
     - name: Build
       run: |
-          cabal v2-build --enable-tests --enable-benchmarks --ghc-options=-Werror
+          cabal build --enable-tests --enable-benchmarks --ghc-options=-Werror
     - name: Test
       run: |
-          cabal v2-test
+          cabal test
