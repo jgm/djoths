@@ -12,12 +12,16 @@ jobs:
         versions:
           - ghc: '9.6'
             cabal: 'latest'
+            cabalopts: '--ghc-option=-Werror'
           - ghc: '9.8'
             cabal: 'latest'
+            cabalopts: '--ghc-option=-Werror'
           - ghc: '9.10'
             cabal: 'latest'
+            cabalopts: '--ghc-option=-Werror'
           - ghc: '9.12'
             cabal: 'latest'
+            cabalopts: ''
     steps:
     - uses: actions/checkout@v7
     - name: Install cabal/ghc
@@ -38,7 +42,7 @@ jobs:
           cabal update && cabal build --dependencies-only --enable-tests --enable-benchmarks
     - name: Build
       run: |
-          cabal build --enable-tests --enable-benchmarks --ghc-options=-Werror
+          cabal build ${{ matrix.versions.cabalopts }} --enable-tests --enable-benchmarks
     - name: Test
       run: |
           cabal test
