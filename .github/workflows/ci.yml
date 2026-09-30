@@ -34,7 +34,7 @@ jobs:
       uses: actions/cache@v6
       with:
         path: |
-          ~/.cabal
+          ~/.local/state/cabal
         key: ${{ runner.os }}-${{ matrix.versions.ghc }}-${{ matrix.versions.cabal }}-cabal-global-${{ secrets.CACHE_VERSION }}
 
     - name: Install dependencies
