@@ -31,7 +31,6 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Applicative
-import Data.Typeable (Typeable)
 -- import Debug.Trace
 
 parseDoc :: ParseOptions -> ByteString -> Either String Doc
@@ -911,7 +910,7 @@ data ContainerData =
   | CaptionData Int
   | AttributeData Int
   | ReferenceData ByteString
-  deriving (Show, Eq, Ord, Typeable)
+  deriving (Show, Eq, Ord)
 
 data ListType =
     Bullet Char

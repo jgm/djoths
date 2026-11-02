@@ -85,7 +85,7 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as M
 import Data.Set (Set)
-import Data.Data (Data, Typeable)
+import Data.Data (Data)
 import qualified Data.ByteString.Char8 as B8
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift (..))
@@ -93,7 +93,7 @@ import Language.Haskell.TH.Syntax (Lift (..))
 -- import Debug.Trace
 
 newtype Attr = Attr [(ByteString, ByteString)]
-  deriving (Show, Eq, Ord, Typeable, Data, Generic, Lift)
+  deriving (Show, Eq, Ord, Data, Generic, Lift)
 
 instance Semigroup Attr where
   Attr as <> Attr bs =
@@ -114,7 +114,7 @@ integrate (k,v) kvs =
       | otherwise -> kvs
 
 data Pos = NoPos | Pos Int Int Int Int -- start line, start col, end line, end col
-  deriving (Show, Eq, Ord, Typeable, Data, Generic, Lift)
+  deriving (Show, Eq, Ord, Data, Generic, Lift)
 
 -- | @p1 <> p2@ spans from the start of @p1@ to the end of @p2@.
 -- 'NoPos' is an identity.
@@ -129,7 +129,7 @@ instance Monoid Pos where
   mempty = NoPos
 
 data Node a = Node Pos Attr a
-  deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Typeable, Data, Generic, Lift)
+  deriving (Show, Eq, Ord, Functor, Traversable, Foldable, Data, Generic, Lift)
 
 {-# INLINE addAttr #-}
 addAttr :: Attr -> Node a -> Node a
@@ -140,18 +140,18 @@ addPos :: Pos -> Node a -> Node a
 addPos pos (Node _ attr bs) = Node pos attr bs
 
 newtype Format = Format { unFormat :: ByteString }
-  deriving (Show, Eq, Ord, Typeable, Data, Generic, Lift)
+  deriving (Show, Eq, Ord, Data, Generic, Lift)
 
 data MathStyle = DisplayMath | InlineMath
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data Target =
     Direct ByteString
   | Reference ByteString
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data QuoteType = SingleQuotes | DoubleQuotes
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data Inline =
       Str ByteString
@@ -176,10 +176,10 @@ data Inline =
     | Quoted QuoteType Inlines
     | SoftBreak
     | HardBreak
-    deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+    deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 newtype Many a = Many { unMany :: Seq a }
-  deriving (Show, Ord, Eq, Functor, Traversable, Foldable, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Functor, Traversable, Foldable, Data, Generic, Lift)
 
 type Inlines = Many (Node Inline)
 
@@ -220,37 +220,37 @@ instance Monoid Inlines where
   mempty = Many mempty
 
 data ListSpacing = Tight | Loose
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data OrderedListStyle =
   Decimal | LetterUpper | LetterLower | RomanUpper | RomanLower
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data OrderedListDelim =
   RightPeriod | RightParen | LeftRightParen
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data OrderedListAttributes =
   OrderedListAttributes
   { orderedListStyle :: OrderedListStyle
   , orderedListDelim :: OrderedListDelim
   , orderedListStart :: Int }
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data TaskStatus = Complete | Incomplete
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 newtype Caption = Caption Blocks
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data Align = AlignLeft | AlignRight | AlignCenter | AlignDefault
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data CellType = HeadCell | BodyCell
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data Cell = Cell CellType Align Inlines
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 data Block =
     Para Inlines
@@ -266,7 +266,7 @@ data Block =
   | ThematicBreak
   | Table (Maybe Caption) [[Cell]]
   | RawBlock Format ByteString
-  deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 type Blocks = Many (Node Block)
 
@@ -283,7 +283,7 @@ data Doc =
      , docReferences :: ReferenceMap
      , docAutoReferences :: ReferenceMap
      , docAutoIdentifiers :: Set ByteString
-     } deriving (Show, Ord, Eq, Typeable, Data, Generic, Lift)
+     } deriving (Show, Ord, Eq, Data, Generic, Lift)
 
 instance Semigroup Doc where
   Doc bs ns rs ar ai <> Doc bs' ns' rs' ar' ai' =
@@ -295,7 +295,7 @@ instance Monoid Doc where
 
 -- | A map from labels to contents.
 newtype NoteMap = NoteMap { unNoteMap :: M.Map ByteString Blocks }
-  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Semigroup, Monoid, Data, Generic, Lift)
 
 insertNote :: ByteString -> Blocks -> NoteMap -> NoteMap
 insertNote label ref (NoteMap m) =
@@ -307,7 +307,7 @@ lookupNote label (NoteMap m) =
 
 newtype ReferenceMap =
   ReferenceMap { unReferenceMap :: M.Map ByteString (ByteString, Attr) }
-  deriving (Show, Ord, Eq, Semigroup, Monoid, Typeable, Data, Generic, Lift)
+  deriving (Show, Ord, Eq, Semigroup, Monoid, Data, Generic, Lift)
 
 normalizeLabel :: ByteString -> ByteString
 normalizeLabel = B8.unwords . B8.splitWith isWs

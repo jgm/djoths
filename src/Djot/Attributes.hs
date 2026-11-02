@@ -14,7 +14,6 @@ import Djot.Parse
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import Data.ByteString.Char8 ( (!?) )
-import Data.Typeable (Typeable)
 -- import Debug.Trace
 
 
@@ -53,7 +52,7 @@ data AttrParseResult =
     Done (Attr, Int) -- result and byte offset
   | Failed Int -- byte offset of failure
   | Partial AttrParserState -- entire bytestring consumed
-  deriving (Show, Typeable)
+  deriving (Show)
 
 data AttrParserState =
   AttrParserState
@@ -61,7 +60,7 @@ data AttrParserState =
   , subject :: ByteString
   , offset :: Int
   , parts :: [AttrPart] }
-  deriving (Show, Typeable)
+  deriving (Show)
 
 data AState =
     SCANNING
@@ -73,14 +72,14 @@ data AState =
   | FAIL
   | DONE
   | START
-  deriving (Eq, Ord, Show, Typeable)
+  deriving (Eq, Ord, Show)
 
 data AttrPart =
     AttrId ByteString
   | AttrClass ByteString
   | AttrKey ByteString
   | AttrValue ByteString
-  deriving (Eq, Ord, Show, Typeable)
+  deriving (Eq, Ord, Show)
 
 -- | Resumable parser, returning parts in reverse order.
 parseAttributes :: Maybe AttrParserState -> ByteString -> AttrParseResult
