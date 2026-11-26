@@ -584,7 +584,7 @@ thematicBreakSpec =
                         *> skipMany spaceOrTab
       ind <- sourceColumn
       breakChar *> breakChar *> breakChar *> skipMany breakChar
-      lookahead endline
+      lookahead (endline <|> eof)
       addContainer thematicBreakSpec ind NoData
   , blockContinue = \_ -> pure False
   , blockContainsBlock = Nothing
@@ -646,7 +646,7 @@ codeBlockSpec =
                  (skipSome $ skipSatisfyByte (\c -> c /= '`' && not (isWs c)))
                   <* skipMany spaceOrTab)
              <|> pure ""
-      lookahead endline
+      lookahead (endline <|> eof)
       addContainer codeBlockSpec indent (CodeBlockData ticks lang indent)
   , blockContinue = \container -> do
       let (ticks, indent) = case containerData container of
@@ -657,7 +657,7 @@ codeBlockSpec =
           byteString ticks
           skipMany (asciiChar '`')
           skipMany spaceOrTab
-          lookahead endline
+          lookahead (endline <|> eof)
           pure False)
         <|> pure True
   , blockContainsBlock = Nothing
@@ -687,7 +687,7 @@ divSpec =
       skipMany spaceOrTab
       label <- byteStringOf $ skipMany $ skipSatisfyByte (not . isWs)
       skipMany spaceOrTab
-      lookahead endline
+      lookahead (endline <|> eof)
       addContainer divSpec ind (DivData colons label)
   , blockContinue = \container -> (do
       tip <- getTip
@@ -700,7 +700,7 @@ divSpec =
       byteString colons
       skipMany (asciiChar ':')
       skipMany spaceOrTab
-      lookahead endline
+      lookahead (endline <|> eof)
       pure False) <|> pure True
   , blockContainsBlock = Just Normal
   , blockContainsLines = False
