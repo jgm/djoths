@@ -375,11 +375,12 @@ spaceOrTab = Parser $ \st ->
 ws :: Parser s ()
 ws = skipSome (satisfyByte isWs)
 
--- | Next character is ASCII whitespace.
+-- | Next character is ASCII whitespace, or there is no next character.
 followedByWhitespace :: Parser s ()
 followedByWhitespace = Parser $ \st ->
   case current st of
     Just c | isWs c -> Just (st, ())
+    Nothing -> Just (st, ())
     _ -> Nothing
 
 -- | Followed by 0 or more spaces/tabs and endline or eof.

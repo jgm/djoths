@@ -102,6 +102,14 @@ astTests =
   , testCase "newline in quoted attribute value becomes a space" $
       convertNoPos "{k=\"a\n b\"}\npara\n" @?=
         "<p k=\"a b\">para</p>\n"
+  , testCase "block syntax at the end of input without a newline" $ do
+      convertNoPos "```\na\n```" @?= "<pre><code>a\n</code></pre>\n"
+      convertNoPos "::: c\na\n:::" @?= "<div class=\"c\">\n<p>a</p>\n</div>\n"
+      convertNoPos "> a\n>" @?= "<blockquote>\n<p>a</p>\n</blockquote>\n"
+      convertNoPos "* * *" @?= "<hr>\n"
+      convertNoPos "- [ ]" @?= convertNoPos "- [ ]\n"
+      convertNoPos "1." @?= "<ol>\n<li>\n</li>\n</ol>\n"
+      convertNoPos "#" @?= "<section id=\"sec\">\n<h1></h1>\n</section>\n"
   , testCase "reference labels of no more than 400 bytes" $ do
       let label400 = BL.pack (replicate 400 'x')
       convertNoPos ("[a][" <> label400 <> "]\n") @?= "<p><a>a</a></p>\n"
